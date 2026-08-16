@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Catalogo — FERMO</title>
+<meta name="description" content="Cerca capacità produttiva ferma: CNC, stampa 3D, taglio laser, laboratori, magazzini, furgoni e attrezzature.">
+<!-- anteprima dei collegamenti -->
+<link rel="canonical" href="https://fermo-demo.onrender.com/catalogo">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="FERMO">
+<meta property="og:locale" content="it_IT">
+<meta property="og:url" content="https://fermo-demo.onrender.com/catalogo">
+<meta property="og:title" content="Catalogo — FERMO">
+<meta property="og:description" content="Cerca capacità produttiva ferma: CNC, stampa 3D, taglio laser, laboratori, magazzini, furgoni e attrezzature.">
+<meta property="og:image" content="https://fermo-demo.onrender.com/assets/anteprima.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="FERMO — marketplace della capacita inutilizzata">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#C2410C" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0F0F10" media="(prefers-color-scheme: dark)">
+
+<link rel="stylesheet" href="assets/css/fermo.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%23C2410C'/><text x='16' y='23' font-size='20' font-family='monospace' fill='white' text-anchor='middle'>F</text></svg>">
+</head>
+<body>
+
+<main class="foglio sezione--stretta">
+
+  <div class="capo" style="margin-top:16px">
+    <span class="capo__n">[CAT]</span>
+    <h2>Catalogo della capacità</h2>
+    <span class="capo__nota" id="stato-conteggio">—</span>
+  </div>
+
+  <!-- barra di ricerca -->
+  <form class="blocco" id="modulo-ricerca" role="search" style="margin-bottom:20px">
+    <div class="blocco__corpo" style="display:flex;gap:10px;flex-wrap:wrap">
+      <div style="flex:1;min-width:240px">
+        <label class="solo-lettori" for="q">Cerca nel catalogo</label>
+        <input type="search" id="q" name="q" placeholder="fresa 5 assi, cella frigo, laser fibra, Brescia…" autocomplete="off">
+      </div>
+      <div style="min-width:190px">
+        <label class="solo-lettori" for="ordina">Ordina i risultati</label>
+        <select id="ordina">
+          <option value="rilevanza">Ordina: rilevanza</option>
+          <option value="ore">Più ore libere</option>
+          <option value="prezzo-su">Prezzo crescente</option>
+          <option value="prezzo-giu">Prezzo decrescente</option>
+          <option value="voto">Meglio valutati</option>
+          <option value="pronto">Disponibile prima</option>
+        </select>
+      </div>
+      <button class="bottone bottone--primario" type="submit">Cerca</button>
+    </div>
+  </form>
+
+  <div class="catalogo">
+
+    <!-- ================================ FILTRI -->
+    <aside class="filtri">
+      <div class="blocco">
+        <div class="blocco__testa">
+          Filtri
+          <button class="bottone bottone--piccolo bottone--nudo spinta" type="button" id="pulisci"
+                  style="box-shadow:none;padding:3px 8px">Pulisci</button>
+        </div>
+
+        <fieldset class="filtri__gruppo" style="border:0;margin:0">
+          <legend class="etichetta" style="padding:0 0 8px">Categoria</legend>
+          <div class="pila" id="filtro-categoria" style="--gap:0"></div>
+        </fieldset>
+
+        <fieldset class="filtri__gruppo" style="border:0;margin:0">
+          <legend class="etichetta" style="padding:0 0 8px">Modalità</legend>
+          <div class="scelte" id="filtro-modalita"></div>
+        </fieldset>
+
+        <div class="filtri__gruppo">
+          <label class="campo">
+            <span class="campo__nome">Unità di prezzo</span>
+            <select id="filtro-unita">
+              <option value="">Tutte le unità</option>
+              <option value="ora">a ora</option>
+              <option value="giorno">a giorno</option>
+              <option value="settimana">a settimana</option>
+              <option value="mese">a mese</option>
+              <option value="pezzo">a pezzo</option>
+              <option value="m3mese">a metro cubo/mese</option>
+              <option value="palletmese">a pallet/mese</option>
+              <option value="km">a chilometro</option>
+              <option value="corpo">in blocco (vendita)</option>
+            </select>
+          </label>
+          <label class="campo" id="riga-prezzo">
+            <span class="campo__nome">Prezzo massimo <span id="prezzo-valore" class="numerico"></span></span>
+            <input type="range" id="filtro-prezzo" min="0" max="100" value="100" step="1" disabled>
+            <span class="campo__aiuto" id="prezzo-nota">Scegli un'unità: i prezzi diventano confrontabili.</span>
+          </label>
+        </div>
+
+        <div class="filtri__gruppo">
+          <label class="campo">
+            <span class="campo__nome">Dove</span>
+            <select id="filtro-citta"><option value="">Tutta Italia</option></select>
+          </label>
+          <label class="campo">
+            <span class="campo__nome">Pronta entro</span>
+            <select id="filtro-preavviso">
+              <option value="">Qualsiasi preavviso</option>
+              <option value="2">2 giorni</option>
+              <option value="5">5 giorni</option>
+              <option value="10">10 giorni</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="filtri__gruppo">
+          <label class="riga" style="gap:9px;cursor:pointer;flex-wrap:nowrap">
+            <input type="checkbox" id="filtro-verificato" style="width:auto">
+            <span class="piccolo">Solo fornitori verificati</span>
+          </label>
+          <label class="riga" style="gap:9px;cursor:pointer;margin-top:9px;flex-wrap:nowrap">
+            <input type="checkbox" id="filtro-preferiti" style="width:auto">
+            <span class="piccolo">Solo i miei preferiti</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="avviso avviso--occhio piccolo" style="margin-top:16px">
+        <strong>Demo.</strong> Fornitori, prezzi e disponibilità sono inventati.
+        Quello che salvi resta solo nel tuo browser.
+      </div>
+    </aside>
+
+    <!-- ================================ RISULTATI -->
+    <section>
+      <div class="riga riga--fra" style="margin-bottom:14px">
+        <div class="riga" id="gettoni"></div>
+        <div class="scelte spinta" role="group" aria-label="Come vedere i risultati">
+          <label class="scelta"><input type="radio" name="vista" value="lista" checked><span>Elenco</span></label>
+          <label class="scelta"><input type="radio" name="vista" value="quadro"><span>Quadro sedi</span></label>
+        </div>
+      </div>
+
+      <div class="blocco" id="pannello-quadro" hidden style="margin-bottom:18px">
+        <div class="blocco__testa">
+          Sedi con capacità a catalogo
+          <span class="spinta piccolo tenue" id="quadro-letto">Tocca una sede per filtrare</span>
+        </div>
+        <div class="blocco__corpo">
+          <div class="impianto" style="grid-template-columns:minmax(0,1fr) 260px">
+            <div id="quadro-innesto"></div>
+            <div class="pila">
+              <p class="piccolo tenue">
+                Proiezione equirettangolare delle sedi reali dei fornitori. Il punto cresce
+                dove una città ha più schede, e prende il nome solo dove c'è spazio per
+                scriverlo. Non c'è nessun contorno disegnato: la sagoma è fatta dalle sedi
+                stesse, e il vuoto al Sud è la copertura che manca davvero.
+              </p>
+              <div class="involucro-scorrevole" style="max-height:320px">
+                <table class="tabella piccolo" id="quadro-tabella">
+                  <thead><tr><th>Sede</th><th class="num">Schede</th></tr></thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="esiti" id="risultati"></div>
+      <div id="niente"></div>
+    </section>
+
+  </div>
+</main>
+
+<script src="assets/js/data.js"></script>
+<script src="assets/js/demo.js"></script>
+<script src="assets/js/core.js"></script>
+<script src="assets/js/catalogo.js"></script>
+</body>
+</html>

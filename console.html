@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Console — FERMO</title>
+<meta name="description" content="Pannello del proprietario: occupazione, ricavi, richieste in arrivo sulla capacità pubblicata.">
+<!-- anteprima dei collegamenti -->
+<link rel="canonical" href="https://fermo-demo.onrender.com/console">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="FERMO">
+<meta property="og:locale" content="it_IT">
+<meta property="og:url" content="https://fermo-demo.onrender.com/console">
+<meta property="og:title" content="Console — FERMO">
+<meta property="og:description" content="Pannello del proprietario: occupazione, ricavi, richieste in arrivo sulla capacità pubblicata.">
+<meta property="og:image" content="https://fermo-demo.onrender.com/assets/anteprima.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="FERMO — marketplace della capacita inutilizzata">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#C2410C" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0F0F10" media="(prefers-color-scheme: dark)">
+
+<link rel="stylesheet" href="assets/css/fermo.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%23C2410C'/><text x='16' y='23' font-size='20' font-family='monospace' fill='white' text-anchor='middle'>F</text></svg>">
+</head>
+<body>
+
+<main class="foglio sezione--stretta">
+
+  <div class="capo" style="margin-top:16px">
+    <span class="capo__n">[CON]</span>
+    <h2>Console del proprietario</h2>
+    <span class="capo__nota" id="periodo">—</span>
+  </div>
+
+  <div class="avviso avviso--occhio piccolo" style="margin-bottom:20px">
+    <strong>Stai guardando un parco macchine dimostrativo.</strong>
+    Gli annunci che pubblichi tu si aggiungono qui sotto e ai grafici.
+  </div>
+
+  <!-- ============================ NUMERO GUIDA + TESSERE -->
+  <div class="impianto impianto--pari">
+    <div class="blocco">
+      <div class="blocco__testa">Transato lordo · ultime 12 settimane</div>
+      <div class="blocco__corpo">
+        <div class="cifra numerico" id="ricavo-totale">—</div>
+        <p class="piccolo tenue" id="ricavo-nota" style="margin-top:8px">—</p>
+      </div>
+    </div>
+    <div class="griglia-2" style="gap:14px">
+      <div class="blocco blocco--piatto"><div class="blocco__corpo">
+        <div class="etichetta">Ore vendute / sett.</div>
+        <div class="cifra cifra--media numerico" id="t-ore">—</div>
+        <div class="piccolo tenue" id="t-ore-nota">—</div>
+      </div></div>
+      <div class="blocco blocco--piatto"><div class="blocco__corpo">
+        <div class="etichetta">Occupazione media</div>
+        <div class="cifra cifra--media numerico" id="t-sat">—</div>
+        <div class="piccolo tenue" id="t-sat-nota">—</div>
+      </div></div>
+      <div class="blocco blocco--piatto"><div class="blocco__corpo">
+        <div class="etichetta">Richieste da evadere</div>
+        <div class="cifra cifra--media numerico" id="t-richieste">—</div>
+        <div class="piccolo tenue">Rispondi entro 24 ore</div>
+      </div></div>
+      <div class="blocco blocco--piatto"><div class="blocco__corpo">
+        <div class="etichetta">Capacità invenduta</div>
+        <div class="cifra cifra--media numerico" id="t-persa">—</div>
+        <div class="piccolo tenue">Mancato ricavo settimanale</div>
+      </div></div>
+    </div>
+  </div>
+
+  <!-- ============================ GRAFICI -->
+  <section class="sezione">
+    <div class="griglia-2" style="gap:20px">
+
+      <div class="blocco">
+        <div class="blocco__testa">Transato per settimana</div>
+        <div class="blocco__corpo">
+          <p class="piccolo tenue" id="letto-settimane" style="min-height:2.4em;margin-bottom:8px">
+            Passa sopra una colonna per leggere il valore.</p>
+          <div id="grafico-settimane"></div>
+          <div id="tabella-settimane"></div>
+        </div>
+      </div>
+
+      <div class="blocco">
+        <div class="blocco__testa">Ore vendute per categoria</div>
+        <div class="blocco__corpo">
+          <p class="piccolo tenue" style="margin-bottom:12px">
+            Oltre la terza categoria le altre confluiscono in <em>Altro</em>: tre colori restano
+            distinguibili anche con daltonismo, di più no.</p>
+          <div id="grafico-categorie"></div>
+          <div class="legenda" id="legenda-categorie" style="margin-top:14px"></div>
+          <div id="tabella-categorie"></div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============================ PARCO -->
+  <section class="sezione--stretta">
+    <div class="capo">
+      <span class="capo__n">[P/1]</span>
+      <h2>Parco pubblicato</h2>
+      <span class="capo__nota">Occupazione per macchina</span>
+    </div>
+    <div class="blocco">
+      <div class="involucro-scorrevole">
+        <table class="tabella" id="tabella-parco">
+          <thead>
+            <tr>
+              <th>Matricola</th><th>Bene</th><th>Occupazione</th>
+              <th class="num">Ore ferme</th><th class="num">Mancato ricavo</th><th></th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ RICHIESTE -->
+  <section class="sezione--stretta">
+    <div class="capo">
+      <span class="capo__n">[P/2]</span>
+      <h2>Richieste in arrivo</h2>
+      <span class="capo__nota" id="conteggio-richieste">—</span>
+    </div>
+    <div class="blocco">
+      <div class="involucro-scorrevole">
+        <table class="tabella" id="tabella-richieste">
+          <thead>
+            <tr>
+              <th>Codice</th><th>Bene</th><th>Cliente</th><th>Quando</th>
+              <th class="num">Importo</th><th>Stato</th><th></th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<script src="assets/js/data.js"></script>
+<script src="assets/js/demo.js"></script>
+<script src="assets/js/core.js"></script>
+<script src="assets/js/console.js"></script>
+</body>
+</html>

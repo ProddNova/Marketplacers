@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pubblica capacità — FERMO</title>
+<meta name="description" content="Metti a reddito la capacità ferma: quattro passaggi, nessun canone, commissione solo sul transato.">
+<!-- anteprima dei collegamenti -->
+<link rel="canonical" href="https://fermo-demo.onrender.com/pubblica">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="FERMO">
+<meta property="og:locale" content="it_IT">
+<meta property="og:url" content="https://fermo-demo.onrender.com/pubblica">
+<meta property="og:title" content="Pubblica capacità — FERMO">
+<meta property="og:description" content="Metti a reddito la capacità ferma: quattro passaggi, nessun canone, commissione solo sul transato.">
+<meta property="og:image" content="https://fermo-demo.onrender.com/assets/anteprima.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="FERMO — marketplace della capacita inutilizzata">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#C2410C" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0F0F10" media="(prefers-color-scheme: dark)">
+
+<link rel="stylesheet" href="assets/css/fermo.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%23C2410C'/><text x='16' y='23' font-size='20' font-family='monospace' fill='white' text-anchor='middle'>F</text></svg>">
+</head>
+<body>
+
+<main class="foglio sezione--stretta">
+
+  <div class="capo" style="margin-top:16px">
+    <span class="capo__n">[PUB]</span>
+    <h2>Metti a reddito il fermo</h2>
+    <span class="capo__nota">Modulo di pubblicazione</span>
+  </div>
+
+  <div class="passi" id="passi" style="margin-bottom:20px">
+    <div class="passo" data-passo="1"><b>01</b> Che cosa cedi</div>
+    <div class="passo" data-passo="2"><b>02</b> Dove e quanto</div>
+    <div class="passo" data-passo="3"><b>03</b> Prezzo</div>
+    <div class="passo" data-passo="4"><b>04</b> Controllo e firma</div>
+  </div>
+
+  <form class="impianto" id="modulo" novalidate>
+
+    <!-- ========================================= COLONNA MODULO -->
+    <div class="blocco">
+      <div class="blocco__testa" id="titolo-passo">Passo 01 · Che cosa cedi</div>
+      <div class="blocco__corpo">
+
+        <!-- ------- passo 1 -->
+        <section data-sezione="1">
+          <label class="campo">
+            <span class="campo__nome">Categoria *</span>
+            <select id="f-cat" required></select>
+          </label>
+          <label class="campo">
+            <span class="campo__nome">Titolo dell'annuncio *</span>
+            <input type="text" id="f-titolo" maxlength="90" placeholder="Es. Centro di lavoro 4 assi con tavola rotante">
+            <span class="campo__aiuto">Marca, modello e caratteristica che conta. Chi cerca legge questa riga e basta.</span>
+          </label>
+          <div class="campo">
+            <span class="campo__nome">Come la cedi * <span class="tenue">(anche più di una)</span></span>
+            <div class="scelte" id="f-mod"></div>
+            <p class="campo__aiuto" id="nota-mod">&nbsp;</p>
+          </div>
+          <label class="campo">
+            <span class="campo__nome">In due righe, perché è ferma</span>
+            <textarea id="f-sintesi" maxlength="280" placeholder="Es. Il terzo turno è scoperto da marzo: cediamo le notti e i sabati."></textarea>
+          </label>
+        </section>
+
+        <!-- ------- passo 2 -->
+        <section data-sezione="2" hidden>
+          <div class="griglia-2">
+            <label class="campo">
+              <span class="campo__nome">Città *</span>
+              <input type="text" id="f-citta" placeholder="Brescia">
+            </label>
+            <label class="campo">
+              <span class="campo__nome">Provincia *</span>
+              <input type="text" id="f-prov" maxlength="2" placeholder="BS" style="text-transform:uppercase">
+            </label>
+          </div>
+          <label class="campo">
+            <span class="campo__nome">Ragione sociale *</span>
+            <input type="text" id="f-fornitore" placeholder="Officina Meccanica Esempio srl">
+          </label>
+          <div class="griglia-2">
+            <label class="campo">
+              <span class="campo__nome">Ore disponibili a settimana *</span>
+              <input type="number" id="f-ore-tot" min="1" max="168" value="45">
+              <span class="campo__aiuto">Quante ore la macchina potrebbe lavorare.</span>
+            </label>
+            <label class="campo">
+              <span class="campo__nome">Di cui ferme *</span>
+              <input type="number" id="f-ore-libere" min="0" max="168" value="18">
+              <span class="campo__aiuto">Quelle che vuoi vendere.</span>
+            </label>
+          </div>
+          <label class="campo">
+            <span class="campo__nome">Preavviso necessario</span>
+            <select id="f-preavviso">
+              <option value="1">1 giorno</option>
+              <option value="2" selected>2 giorni</option>
+              <option value="5">5 giorni</option>
+              <option value="10">10 giorni</option>
+              <option value="15">15 giorni</option>
+            </select>
+          </label>
+          <div class="campo">
+            <span class="campo__nome">Occupazione attuale</span>
+            <div id="anteprima-saturazione"></div>
+          </div>
+        </section>
+
+        <!-- ------- passo 3 -->
+        <section data-sezione="3" hidden>
+          <div class="griglia-2">
+            <label class="campo">
+              <span class="campo__nome">Prezzo *</span>
+              <input type="number" id="f-prezzo" min="0" step="0.01" value="45">
+            </label>
+            <label class="campo">
+              <span class="campo__nome">Unità *</span>
+              <select id="f-unita">
+                <option value="ora">a ora</option>
+                <option value="giorno">a giorno</option>
+                <option value="settimana">a settimana</option>
+                <option value="mese">a mese</option>
+                <option value="pezzo">a pezzo</option>
+                <option value="m3mese">a m³ / mese</option>
+                <option value="palletmese">a pallet / mese</option>
+                <option value="km">a chilometro</option>
+                <option value="corpo">in blocco (vendita)</option>
+              </select>
+            </label>
+          </div>
+          <label class="campo">
+            <span class="campo__nome">Impegno minimo</span>
+            <input type="text" id="f-minimo" placeholder="Es. 4 ore" value="4 ore">
+          </label>
+          <label class="campo">
+            <span class="campo__nome">Logistica</span>
+            <select id="f-logistica">
+              <option value="in-sede">Si lavora in sede mia</option>
+              <option value="spedizione">Il cliente spedisce i pezzi</option>
+              <option value="ritiro">Il bene si ritira e si riconsegna</option>
+            </select>
+          </label>
+          <div class="avviso avviso--nota" id="stima" style="margin-top:16px"></div>
+        </section>
+
+        <!-- ------- passo 4 -->
+        <section data-sezione="4" hidden>
+          <div class="campo">
+            <label class="campo__nome" for="f-specifiche">Scheda tecnica
+              <span class="tenue">(una voce per riga: <code>chiave: valore</code>)</span></label>
+            <textarea id="f-specifiche" rows="6" placeholder="Corse X/Y/Z: 800 × 500 × 500 mm&#10;Mandrino: 12.000 giri/min&#10;Tolleranza tipica: ± 0,02 mm"></textarea>
+            <span class="campo__aiuto">Chi compra capacità compra numeri. Più righe metti, meno telefonate ricevi.</span>
+          </div>
+          <div class="griglia-2">
+            <label class="campo">
+              <span class="campo__nome">Compreso nel prezzo <span class="tenue">(virgole)</span></span>
+              <input type="text" id="f-incluso" placeholder="Refrigerante, attrezzaggio base">
+            </label>
+            <label class="campo">
+              <span class="campo__nome">A parte <span class="tenue">(virgole)</span></span>
+              <input type="text" id="f-escluso" placeholder="Utensili speciali, trasporto">
+            </label>
+          </div>
+          <label class="campo">
+            <span class="campo__nome">Certificazioni <span class="tenue">(virgole)</span></span>
+            <input type="text" id="f-certificazioni" placeholder="ISO 9001:2015, EN 1090">
+          </label>
+          <div class="avviso avviso--occhio" style="margin-top:16px">
+            <strong>Prima della pubblicazione reale</strong> verificheremmo partita IVA, visura e referente.
+            In questa demo l'annuncio compare subito nel catalogo, marcato come <em>tuo</em>, e resta nel tuo browser.
+          </div>
+        </section>
+
+        <!-- ------- comandi -->
+        <div class="riga riga--fra" style="margin-top:24px;border-top:2px solid var(--inchiostro);padding-top:18px">
+          <button class="bottone" type="button" id="indietro" disabled>← Indietro</button>
+          <span class="etichetta" id="contatore">Passo 1 di 4</span>
+          <button class="bottone bottone--primario" type="button" id="avanti">Avanti →</button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ========================================= COLONNA ANTEPRIMA -->
+    <div class="pila appiccicoso">
+      <div class="blocco blocco--piatto">
+        <div class="blocco__testa">Anteprima nel catalogo</div>
+        <div class="blocco__corpo" style="background:var(--pannello-2)">
+          <div id="anteprima"></div>
+        </div>
+      </div>
+      <div class="blocco blocco--piatto">
+        <div class="blocco__testa">Conto della serva</div>
+        <div class="blocco__corpo">
+          <table class="tabella piccolo" id="conto-anteprima"></table>
+        </div>
+      </div>
+    </div>
+
+  </form>
+</main>
+
+<script src="assets/js/data.js"></script>
+<script src="assets/js/demo.js"></script>
+<script src="assets/js/core.js"></script>
+<script src="assets/js/pubblica.js"></script>
+</body>
+</html>

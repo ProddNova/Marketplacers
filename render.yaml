@@ -1,0 +1,88 @@
+# =============================================================================
+# FERMO — sito statico su Render
+#
+# Come si usa
+#   1. Render → New → Blueprint → punta a questo repository.
+#      Render legge questo file e crea il servizio da solo.
+#   2. In alternativa, New → Static Site a mano, con:
+#        Build Command      (vuoto)
+#        Publish Directory  .
+#      Le regole di routing e le intestazioni qui sotto vanno poi ricreate
+#      dalla scheda Redirects/Rewrites e Headers del servizio.
+#
+# Non c'è nessun passaggio di build: il repository è già il sito.
+# =============================================================================
+services:
+  - type: web
+    name: fermo
+    runtime: static
+    # Nessuna compilazione: HTML, CSS e JS sono serviti come stanno.
+    buildCommand: "echo 'Nessun passaggio di build: il repository e gia il sito.'"
+    staticPublishPath: .
+    # Ogni pull request ottiene la sua anteprima navigabile.
+    pullRequestPreviewsEnabled: true
+
+    headers:
+      # --- Sicurezza -------------------------------------------------------
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: Referrer-Policy
+        value: strict-origin-when-cross-origin
+      - path: /*
+        name: X-Frame-Options
+        value: SAMEORIGIN
+      - path: /*
+        name: Permissions-Policy
+        value: geolocation=(), camera=(), microphone=(), payment=(), usb=()
+      # Il sito non fa nessuna richiesta di rete: la regola lo dice esplicitamente,
+      # così un domani una chiamata sfuggita si vede subito invece di passare.
+      # script-src resta stretto: nessun JavaScript inline in nessuna pagina.
+      # style-src accetta 'unsafe-inline' perché le pagine usano attributi
+      # style="…" per la messa a punto locale; è un rischio molto minore e
+      # style-src-attr non ha ancora copertura sufficiente per farne a meno.
+      - path: /*
+        name: Content-Security-Policy
+        value: >-
+          default-src 'none';
+          base-uri 'none';
+          form-action 'self';
+          frame-ancestors 'self';
+          script-src 'self';
+          style-src 'self' 'unsafe-inline';
+          img-src 'self' data:;
+          font-src 'self';
+          connect-src 'none';
+          manifest-src 'self'
+
+      # --- Cache -----------------------------------------------------------
+      # L'HTML deve poter cambiare a ogni deploy; gli asset hanno il nome
+      # stabile, quindi cache breve e rivalidazione.
+      - path: /*.html
+        name: Cache-Control
+        value: public, max-age=0, must-revalidate
+      - path: /assets/*
+        name: Cache-Control
+        value: public, max-age=3600, stale-while-revalidate=86400
+
+    routes:
+      # Indirizzi puliti: /catalogo invece di /catalogo.html
+      - type: rewrite
+        source: /catalogo
+        destination: /catalogo.html
+      - type: rewrite
+        source: /scheda
+        destination: /asset.html
+      - type: rewrite
+        source: /pubblica
+        destination: /pubblica.html
+      - type: rewrite
+        source: /console
+        destination: /console.html
+      - type: rewrite
+        source: /richieste
+        destination: /prenotazioni.html
+      - type: rewrite
+        source: /prenotazioni
+        destination: /prenotazioni.html
