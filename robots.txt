@@ -1,0 +1,33 @@
+# FERMO — prototipo dimostrativo.
+# Fornitori, prezzi e valutazioni sono inventati: finché resta una demo non ha
+# senso che finisca negli indici di ricerca. I bot che generano l'anteprima dei
+# collegamenti restano ammessi, altrimenti condividere il link non mostra nulla.
+
+User-agent: Twitterbot
+Allow: /
+
+User-agent: facebookexternalhit
+Allow: /
+
+User-agent: Slackbot-LinkExpanding
+Allow: /
+
+User-agent: LinkedInBot
+Allow: /
+
+User-agent: WhatsApp
+Allow: /
+
+User-agent: TelegramBot
+Allow: /
+
+User-agent: Discordbot
+Allow: /
+
+User-agent: *
+Disallow: /
+
+# Quando diventerà il sito vero, sostituire tutto con:
+#   User-agent: *
+#   Allow: /
+#   Sitemap: https://<dominio>/sitemap.xml

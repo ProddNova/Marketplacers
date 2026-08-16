@@ -214,6 +214,23 @@
     '</div>' +
   '</div>' +
 
+  '<section class="sezione--stretta">' +
+    '<div class="capo"><span class="capo__n">[REC]</span><h2>Chi ci ha lavorato</h2>' +
+    '<span class="capo__nota">' + (a.recensioni ? a.recensioni + ' lavori valutati' : 'Nessuno storico') + '</span></div>' +
+    '<div class="blocco"><div class="blocco__corpo">' +
+      (a.recensioni ?
+        '<div class="riga riga--fra" style="border-bottom:1px solid var(--filo);padding-bottom:12px;margin-bottom:16px">' +
+          '<div class="riga" style="gap:12px">' +
+            '<span class="cifra cifra--media numerico">' + a.rating.toFixed(1) + '</span>' +
+            '<div>' + FERMO.stelle(a.rating) +
+              '<div class="piccolo tenue">su ' + a.recensioni + ' lavori conclusi</div></div>' +
+          '</div>' +
+          '<span class="piccolo tenue">Solo chi ha davvero prenotato può lasciare un giudizio.</span>' +
+        '</div>' : '') +
+      FERMO.muroRecensioni(a) +
+    '</div></div>' +
+  '</section>' +
+
   '<section class="sezione">' +
     '<div class="capo"><span class="capo__n">[SIM]</span><h2>Capacità simile</h2>' +
     '<span class="capo__nota">Stessa categoria</span></div>' +

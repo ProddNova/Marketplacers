@@ -5,6 +5,22 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>FERMO — il marketplace della capacità inutilizzata</title>
 <meta name="description" content="Officine, laboratori, stampanti 3D, CNC, magazzini, furgoni e attrezzature ferme: si affittano, si vendono, si mettono a reddito. Prototipo dimostrativo.">
+<!-- anteprima dei collegamenti -->
+<link rel="canonical" href="https://fermo-demo.onrender.com/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="FERMO">
+<meta property="og:locale" content="it_IT">
+<meta property="og:url" content="https://fermo-demo.onrender.com/">
+<meta property="og:title" content="FERMO — il marketplace della capacità inutilizzata">
+<meta property="og:description" content="Officine, laboratori, stampanti 3D, CNC, magazzini, furgoni e attrezzature ferme: si affittano, si vendono, si mettono a reddito. Prototipo dimostrativo.">
+<meta property="og:image" content="https://fermo-demo.onrender.com/assets/anteprima.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="FERMO — marketplace della capacita inutilizzata">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#C2410C" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0F0F10" media="(prefers-color-scheme: dark)">
+
 <link rel="stylesheet" href="assets/css/fermo.css">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%23C2410C'/><text x='16' y='23' font-size='20' font-family='monospace' fill='white' text-anchor='middle'>F</text></svg>">
 </head>
@@ -241,68 +257,8 @@
 </main>
 
 <script src="assets/js/data.js"></script>
+<script src="assets/js/demo.js"></script>
 <script src="assets/js/core.js"></script>
-<script>
-(function () {
-  FERMO.avvia('index.html');
-  var D = FERMO.D, tutti = FERMO.catalogo();
-
-  document.getElementById('data-oggi').textContent =
-    new Date().toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' });
-
-  /* --- numeri di copertina, calcolati dal catalogo vero --- */
-  var noleggiabili = tutti.filter(function (a) { return a.oreSettimana > 0; });
-  var oreLibere = noleggiabili.reduce(function (t, a) { return t + a.oreLibere; }, 0);
-  var satMedia = noleggiabili.reduce(function (t, a) { return t + FERMO.saturazione(a); }, 0) / noleggiabili.length;
-  var province = {};
-  tutti.forEach(function (a) { province[a.prov] = 1; });
-
-  document.getElementById('kpi-asset').textContent = tutti.length;
-  document.getElementById('kpi-ore').textContent = FERMO.fmt.num(oreLibere);
-  document.getElementById('kpi-cat').textContent = D.CATEGORIE.length;
-  document.getElementById('kpi-citta').textContent = Object.keys(province).length;
-  document.getElementById('kpi-sat').textContent = FERMO.fmt.pct(satMedia);
-
-  /* --- modalità --- */
-  document.getElementById('modalita-lista').innerHTML = D.MODALITA.map(function (m, i) {
-    var n = tutti.filter(function (a) { return a.mod.indexOf(m.id) !== -1; }).length;
-    return '<div class="blocco">' +
-      '<div class="blocco__testa"><span style="color:var(--accento)">' + m.sigla + '</span> ' + FERMO.esc(m.nome) + '</div>' +
-      '<div class="blocco__corpo">' +
-        '<p>' + FERMO.esc(m.nota) + '</p>' +
-        '<div class="riga riga--fra" style="border-top:1px solid var(--filo);padding-top:10px;margin-top:12px">' +
-          '<span class="etichetta">A listino</span>' +
-          '<a href="catalogo.html?mod=' + m.id + '" class="numerico"><strong>' + n + '</strong> schede →</a>' +
-        '</div>' +
-      '</div></div>';
-  }).join('');
-
-  /* --- categorie --- */
-  document.getElementById('categorie-lista').innerHTML = D.CATEGORIE.map(function (c) {
-    var n = tutti.filter(function (a) { return a.cat === c.id; }).length;
-    var ore = tutti.filter(function (a) { return a.cat === c.id; })
-                   .reduce(function (t, a) { return t + a.oreLibere; }, 0);
-    return '<a class="scheda" href="catalogo.html?cat=' + c.id + '">' +
-      '<span class="scheda__figura">' + FERMO.glifo(c.glifo) + '</span>' +
-      '<span class="scheda__corpo" style="gap:4px">' +
-        '<span class="scheda__titolo">' + FERMO.esc(c.nome) + '</span>' +
-        '<span class="scheda__dove numerico">' + n + ' schede · ' + ore + ' h libere/sett.</span>' +
-      '</span></a>';
-  }).join('');
-
-  /* --- in evidenza: la scheda con più ore ferme, una per categoria, così
-         la vetrina non si riempie di tre magazzini --- */
-  var viste = {};
-  var top = tutti.slice()
-    .sort(function (a, b) { return b.oreLibere - a.oreLibere; })
-    .filter(function (a) {
-      if (viste[a.cat]) return false;
-      viste[a.cat] = 1;
-      return true;
-    })
-    .slice(0, 3);
-  document.getElementById('evidenza').innerHTML = top.map(FERMO.scheda).join('');
-})();
-</script>
+<script src="assets/js/manifesto.js"></script>
 </body>
 </html>

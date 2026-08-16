@@ -216,6 +216,8 @@
     var valore = aperte.reduce(function (t, r) { return t + r.importo; }, 0);
     g('conteggio-richieste').textContent = aperte.length + ' aperte · ' + FERMO.fmt.euroTondo(valore);
     g('t-richieste').textContent = aperte.length;
+    /* il bollo in testata legge questo conteggio anche dalle altre pagine */
+    FERMO.store.aggiorna(function (s) { s.richiesteAperte = aperte.length; });
   }
 
   g('tabella-richieste').addEventListener('click', function (e) {

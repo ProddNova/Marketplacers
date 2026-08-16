@@ -10,7 +10,15 @@
   var CHIAVE = 'fermo.v1';
 
   /* ====================================================== STATO LOCALE ===== */
-  var vuoto = { preferiti: [], prenotazioni: [], annunci: [], tema: null, visti: [] };
+  var vuoto = {
+    preferiti: [], prenotazioni: [], annunci: [], tema: null, visti: [],
+    ruolo: 'cliente',      /* cliente | fornitore */
+    messaggi: {},          /* codice ordine → elenco messaggi */
+    decisioni: {},         /* codice richiesta → accettata | rifiutata */
+    richiesteAperte: 0,    /* conteggio per il bollo in testata */
+    seminato: false,       /* la demo si popola una volta sola */
+    tour: false            /* visita guidata gia' vista */
+  };
 
   function leggi() {
     try {
@@ -135,23 +143,56 @@
   }
 
   /* ========================================================== TESTATA ====== */
-  var PAGINE = [
-    { href: 'index.html',       nome: 'Manifesto' },
-    { href: 'catalogo.html',    nome: 'Catalogo' },
-    { href: 'pubblica.html',    nome: 'Pubblica' },
-    { href: 'console.html',     nome: 'Console' },
-    { href: 'prenotazioni.html', nome: 'Prenotazioni', bollo: 'prenotazioni' }
-  ];
+  /* Il marketplace ha due lati e la navigazione lo dice: si entra come chi
+     cerca capacita' o come chi ne cede, e il menu cambia di conseguenza.     */
+  var RUOLI = {
+    cliente: {
+      nome: 'Cliente',
+      nota: 'Cerchi capacità: sfogli il catalogo, configuri un preventivo, segui le tue richieste.',
+      pagine: [
+        { href: 'index.html', nome: 'Manifesto' },
+        { href: 'catalogo.html', nome: 'Catalogo' },
+        { href: 'prenotazioni.html', nome: 'Le mie richieste', bollo: 'prenotazioni' }
+      ]
+    },
+    fornitore: {
+      nome: 'Fornitore',
+      nota: 'Hai capacità ferma: la pubblichi, e dalla console accetti o rifiuti le richieste che arrivano.',
+      pagine: [
+        { href: 'index.html', nome: 'Manifesto' },
+        { href: 'console.html', nome: 'Console', bollo: 'richieste' },
+        { href: 'pubblica.html', nome: 'Pubblica' }
+      ]
+    }
+  };
+  /* Aprire una pagina dell'altro lato cambia ruolo da sola: nessun vicolo cieco. */
+  var RUOLO_DI = {
+    'catalogo.html': 'cliente', 'prenotazioni.html': 'cliente', 'asset.html': 'cliente',
+    'console.html': 'fornitore', 'pubblica.html': 'fornitore'
+  };
+
+  function ruoloCorrente() { return store.tutto().ruolo || 'cliente'; }
 
   function montaTestata(corrente) {
     var s = store.tutto();
-    var voci = PAGINE.map(function (p) {
+    var ruolo = RUOLI[s.ruolo] ? s.ruolo : 'cliente';
+    var voci = RUOLI[ruolo].pagine.map(function (p) {
       var attiva = p.href === corrente ? ' aria-current="page"' : '';
       var bollo = '';
-      if (p.bollo === 'prenotazioni' && s.prenotazioni.length) {
-        bollo = '<span class="navi__bollo numerico">' + s.prenotazioni.length + '</span>';
+      if (p.bollo === 'prenotazioni') {
+        var aperte = s.prenotazioni.filter(function (x) { return x.stato !== 'annullata'; }).length;
+        if (aperte) bollo = '<span class="navi__bollo numerico">' + aperte + '</span>';
+      }
+      if (p.bollo === 'richieste') {
+        var da = s.richiesteAperte || 0;
+        if (da) bollo = '<span class="navi__bollo numerico">' + da + '</span>';
       }
       return '<a href="' + p.href + '"' + attiva + '>' + esc(p.nome) + bollo + '</a>';
+    }).join('');
+
+    var scambio = Object.keys(RUOLI).map(function (k) {
+      return '<button class="ruolo__voce" type="button" data-ruolo-scelto="' + k + '" ' +
+        'aria-pressed="' + (k === ruolo ? 'true' : 'false') + '">' + esc(RUOLI[k].nome) + '</button>';
     }).join('');
 
     var el = document.createElement('header');
@@ -165,6 +206,9 @@
         '<button class="apri-navi" type="button" aria-expanded="false" aria-controls="navi-principale">MENU ≡</button>' +
         '<nav class="navi" id="navi-principale" aria-label="Principale">' + voci + '</nav>' +
         '<div class="testata__coda">' +
+          '<div class="ruolo" role="group" aria-label="Entra come">' +
+            '<span class="ruolo__etichetta">Sei</span>' + scambio +
+          '</div>' +
           '<button class="interruttore" type="button" data-azione="tema">' +
             '<span class="interruttore__spia" aria-hidden="true"></span>' +
             '<span data-ruolo="etichetta-tema">Turno giorno</span>' +
@@ -172,6 +216,15 @@
         '</div>' +
       '</div>';
     document.body.insertBefore(el, document.body.firstChild);
+
+    el.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-ruolo-scelto]');
+      if (!b) return;
+      var scelto = b.getAttribute('data-ruolo-scelto');
+      store.aggiorna(function (st) { st.ruolo = scelto; });
+      var casa = RUOLI[scelto].pagine[1];
+      location.href = casa ? casa.href : 'index.html';
+    });
 
     el.querySelector('.apri-navi').addEventListener('click', function () {
       var nav = el.querySelector('.navi');
@@ -199,6 +252,165 @@
       (!document.documentElement.getAttribute('data-theme') &&
        global.matchMedia && global.matchMedia('(prefers-color-scheme: dark)').matches);
     et.textContent = scuro ? 'Turno notte' : 'Turno giorno';
+  }
+
+  /* Striscia sotto la testata: dice in che panni sei e che è una demo. */
+  function montaStriscia() {
+    var ruolo = RUOLI[ruoloCorrente()] || RUOLI.cliente;
+    var el = document.createElement('div');
+    el.className = 'striscia';
+    el.innerHTML =
+      '<div class="striscia__corpo">' +
+        '<span class="timbro timbro--pieno">Demo</span>' +
+        '<span class="striscia__testo"><strong>Stai navigando come ' + esc(ruolo.nome.toLowerCase()) +
+          '.</strong> ' + esc(ruolo.nota) + '</span>' +
+        '<button class="striscia__x" type="button" data-azione="chiudi-striscia" ' +
+          'aria-label="Chiudi la striscia informativa">×</button>' +
+      '</div>';
+    var testata = document.querySelector('.testata');
+    testata.parentNode.insertBefore(el, testata.nextSibling);
+    el.querySelector('[data-azione="chiudi-striscia"]').addEventListener('click', function () {
+      el.remove();
+    });
+  }
+
+  /* ====================================================== QUADRO SEDI ====== */
+  /* Proiezione equirettangolare delle sedi reali. Nessun contorno disegnato:
+     la sagoma esce dai punti, e cio' che non sappiamo non lo inventiamo. */
+  function quadro(beni, opzioni) {
+    opzioni = opzioni || {};
+    /* Riquadro un po' più stretto dei limiti d'Italia: resta il margine sopra
+       Trento e sotto Palermo, e il vuoto del Sud si vede — perché è un dato,
+       non uno spazio sprecato. */
+    var latMin = 37.4, latMax = 47.0, lonMin = 6.9, lonMax = 18.2;
+    var kx = Math.cos(42 * Math.PI / 180);          /* compressione dei meridiani */
+    var margine = 26;
+    var Lint = (lonMax - lonMin) * kx, Aint = latMax - latMin;
+    var scala = 44;
+    var L = Lint * scala + margine * 2;
+    var A = Aint * scala + margine * 2;
+
+    var px = function (lon) { return margine + (lon - lonMin) * kx * scala; };
+    var py = function (lat) { return margine + (latMax - lat) * scala; };
+
+    /* raggruppo per citta': una sede, un punto, raggio per numero di schede */
+    var sedi = {};
+    beni.forEach(function (b) {
+      var c = D.coord(b.citta);
+      if (!c) return;
+      if (!sedi[b.citta]) sedi[b.citta] = { citta: b.citta, lat: c[0], lon: c[1], beni: [] };
+      sedi[b.citta].beni.push(b);
+    });
+    var elenco = Object.keys(sedi).map(function (k) { return sedi[k]; });
+    /* Raggio proporzionale all'area, non al raggio: e' l'area che l'occhio
+       legge come quantita'. Restano piccoli, cosi' sedi vicine come Brescia e
+       Lumezzane (12 km) non si coprono a vicenda. */
+    var raggio = function (n) { return 4 + 2.6 * Math.sqrt(n - 1); };
+
+    /* graticolato: paralleli e meridiani interi, filo sottile */
+    var rete = '';
+    for (var la = 38; la <= 46; la += 2) {
+      rete += '<line class="rete" x1="' + margine + '" y1="' + py(la).toFixed(1) +
+              '" x2="' + (L - margine) + '" y2="' + py(la).toFixed(1) + '"/>' +
+              '<text class="rete__nome" x="4" y="' + (py(la) + 3).toFixed(1) + '">' + la + '°N</text>';
+    }
+    for (var lo = 8; lo <= 18; lo += 2) {
+      rete += '<line class="rete" x1="' + px(lo).toFixed(1) + '" y1="' + margine +
+              '" x2="' + px(lo).toFixed(1) + '" y2="' + (A - margine) + '"/>' +
+              '<text class="rete__nome" x="' + px(lo).toFixed(1) + '" y="' + (A - 6) +
+              '" text-anchor="middle">' + lo + '°E</text>';
+    }
+
+    /* Il nome si scrive solo dove c'è spazio: se un'altra sede sta a meno di
+       30 px le etichette si accavallerebbero, e allora resta l'elenco accanto.
+       È una regola che si adatta da sola ai filtri, non un elenco a mano. */
+    function isolata(s) {
+      return !elenco.some(function (o) {
+        if (o === s) return false;
+        var dx = px(o.lon) - px(s.lon), dy = py(o.lat) - py(s.lat);
+        return Math.sqrt(dx * dx + dy * dy) < 30;
+      });
+    }
+
+    /* I punti grandi si disegnano per primi: quelli piccoli restano sopra e
+       quindi sempre raggiungibili col dito. L'elenco accanto al quadro resta
+       comunque la via precisa per scegliere una sede qualsiasi. */
+    var punti = elenco.sort(function (a, b) { return b.beni.length - a.beni.length; })
+      .map(function (s) {
+        var r = raggio(s.beni.length);
+        var ore = s.beni.reduce(function (t, b) { return t + b.oreLibere; }, 0);
+        var etichetta = s.citta + ': ' + s.beni.length +
+          (s.beni.length === 1 ? ' scheda' : ' schede') + ', ' + ore + ' ore libere a settimana';
+        var grande = isolata(s);
+        return '<g class="sede" tabindex="0" role="button" data-citta="' + esc(s.citta) + '" ' +
+            'aria-label="' + esc(etichetta) + '. Filtra il catalogo su questa città.">' +
+          '<title>' + esc(etichetta) + '</title>' +
+          '<circle class="sede__alone" cx="' + px(s.lon).toFixed(1) + '" cy="' + py(s.lat).toFixed(1) +
+            '" r="' + (r + 5).toFixed(1) + '"/>' +
+          '<circle class="sede__punto" cx="' + px(s.lon).toFixed(1) + '" cy="' + py(s.lat).toFixed(1) +
+            '" r="' + r.toFixed(1) + '"/>' +
+          (grande ? '<text class="sede__nome" x="' + (px(s.lon) + r + 4).toFixed(1) + '" y="' +
+            (py(s.lat) + 3).toFixed(1) + '">' + esc(s.citta) + '</text>' : '') +
+        '</g>';
+      }).join('');
+
+    return '<svg class="quadro" viewBox="0 0 ' + L.toFixed(0) + ' ' + A.toFixed(0) + '" ' +
+      'role="img" aria-label="' + esc(opzioni.descrizione ||
+        ('Quadro delle sedi: ' + elenco.length + ' città con capacità a catalogo')) + '">' +
+      rete + punti + '</svg>';
+  }
+
+  /* ================================================ AVANZAMENTO ORDINE ===== */
+  var TAPPE = [
+    { id: 'in-attesa',    nome: 'Richiesta inviata' },
+    { id: 'confermata',   nome: 'Confermata' },
+    { id: 'lavorazione',  nome: 'In lavorazione' },
+    { id: 'consegnata',   nome: 'Consegnata' },
+    { id: 'pagata',       nome: 'Saldata' }
+  ];
+  function indiceTappa(stato) {
+    for (var i = 0; i < TAPPE.length; i++) if (TAPPE[i].id === stato) return i;
+    return 0;
+  }
+  function linea(stato) {
+    if (stato === 'annullata') {
+      return '<div class="linea linea--ferma"><span class="timbro timbro--tenue">Percorso interrotto — richiesta annullata</span></div>';
+    }
+    var qui = indiceTappa(stato);
+    return '<ol class="linea">' + TAPPE.map(function (t, i) {
+      var st = i < qui ? 'fatta' : i === qui ? 'qui' : 'attesa';
+      return '<li class="linea__tappa" data-stato="' + st + '">' +
+        '<span class="linea__bollo" aria-hidden="true">' + (i < qui ? '✓' : i + 1) + '</span>' +
+        '<span class="linea__nome">' + esc(t.nome) + '</span>' +
+        (st === 'qui' ? '<span class="solo-lettori">(fase attuale)</span>' : '') +
+      '</li>';
+    }).join('') + '</ol>';
+  }
+
+  /* ========================================================= RECENSIONI ==== */
+  function stelle(voto) {
+    var pieno = Math.round(voto);
+    var s = '';
+    for (var i = 1; i <= 5; i++) s += i <= pieno ? '★' : '☆';
+    return '<span class="stelle" aria-label="' + voto.toFixed(1) + ' su 5">' + s + '</span>';
+  }
+
+  function muroRecensioni(a) {
+    var voci = D.recensioni(a);
+    if (!voci.length) {
+      return '<p class="tenue piccolo">Nessuna recensione: è una scheda appena pubblicata.</p>';
+    }
+    return '<div class="pila">' + voci.map(function (v) {
+      return '<article class="recensione">' +
+        '<div class="riga riga--fra">' +
+          '<div><strong>' + esc(v.autore) + '</strong> ' +
+            '<span class="timbro timbro--tenue">' + esc(D.modalita(v.modalita).nome) + '</span></div>' +
+          '<div class="riga" style="gap:8px">' + stelle(v.voto) +
+            '<span class="piccolo tenue numerico">' + fmt.data(v.quando) + '</span></div>' +
+        '</div>' +
+        '<p style="margin:8px 0 0">' + esc(v.testo) + '</p>' +
+      '</article>';
+    }).join('') + '</div>';
   }
 
   function montaPiede() {
@@ -464,9 +676,20 @@
   }
 
   function avvia(pagina) {
+    /* la demo si popola prima di disegnare, così nessuna pagina parte vuota */
+    if (global.FERMO_DEMO) global.FERMO_DEMO.semina();
+
+    /* aprire una pagina dell'altro lato allinea il ruolo, invece di mostrare
+       un menu che non contiene la pagina in cui ti trovi */
+    var atteso = RUOLO_DI[pagina] || RUOLO_DI[location.pathname.split('/').pop()];
+    if (atteso && store.tutto().ruolo !== atteso) {
+      store.aggiorna(function (st) { st.ruolo = atteso; });
+    }
+
     var s = store.tutto();
     applicaTema(s.tema);
     montaTestata(pagina);
+    montaStriscia();
     montaPiede();
     /* i preferiti si commutano ovunque compaia una scheda */
     document.addEventListener('click', function (e) {
@@ -480,6 +703,8 @@
         dentro ? 'Aggiunto alla tua lista dei preferiti.' : 'Tolto dalla lista dei preferiti.');
       document.dispatchEvent(new CustomEvent('fermo:preferiti'));
     });
+
+    if (global.FERMO_DEMO) global.FERMO_DEMO.montaGuida();
   }
 
   /* Il tema si applica subito, prima del primo disegno, per evitare il lampo */
@@ -505,6 +730,13 @@
     colonne: colonne,
     barre: barre,
     tabellaDati: tabellaDati,
+    quadro: quadro,
+    linea: linea,
+    TAPPE: TAPPE,
+    stelle: stelle,
+    muroRecensioni: muroRecensioni,
+    ruoloCorrente: ruoloCorrente,
+    RUOLI: RUOLI,
     preventivo: preventivo,
     nuovaPrenotazione: nuovaPrenotazione,
     preferito: preferito,

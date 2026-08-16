@@ -195,12 +195,69 @@
       : '';
   }
 
+  /* ---------------------------------------------------------- quadro sedi */
+  var pannelloQuadro = document.getElementById('pannello-quadro');
+  var innestoQuadro = document.getElementById('quadro-innesto');
+  var tabellaQuadro = document.getElementById('quadro-tabella').querySelector('tbody');
+  var lettoQuadro = document.getElementById('quadro-letto');
+
+  function disegnaQuadro(lista) {
+    if (pannelloQuadro.hidden) return;
+    innestoQuadro.innerHTML = FERMO.quadro(lista, {
+      descrizione: 'Quadro delle sedi con capacità a catalogo, per città'
+    });
+    /* la sede già filtrata resta marcata */
+    if (stato.citta) {
+      var g = innestoQuadro.querySelector('[data-citta="' + CSS.escape(stato.citta) + '"]');
+      if (g) g.setAttribute('data-scelta', 'si');
+    }
+    var sedi = {};
+    lista.forEach(function (b) { sedi[b.citta] = (sedi[b.citta] || 0) + 1; });
+    tabellaQuadro.innerHTML = Object.keys(sedi)
+      .sort(function (a, b) { return sedi[b] - sedi[a] || a.localeCompare(b); })
+      .map(function (c) {
+        return '<tr><td><button class="collegamento" type="button" data-citta="' + FERMO.esc(c) + '">' +
+          FERMO.esc(c) + '</button></td><td class="num numerico">' + sedi[c] + '</td></tr>';
+      }).join('');
+  }
+
+  function scegliSede(citta) {
+    stato.citta = (stato.citta === citta) ? '' : citta;
+    el.citta.value = stato.citta;
+    lettoQuadro.textContent = stato.citta
+      ? 'Filtrato su ' + stato.citta + ' — tocca di nuovo per togliere'
+      : 'Tocca una sede per filtrare';
+    disegna();
+  }
+
+  document.getElementById('pannello-quadro').addEventListener('click', function (e) {
+    var g = e.target.closest('[data-citta]');
+    if (g) scegliSede(g.getAttribute('data-citta'));
+  });
+  document.getElementById('pannello-quadro').addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    var g = e.target.closest('g[data-citta]');
+    if (!g) return;
+    e.preventDefault();
+    scegliSede(g.getAttribute('data-citta'));
+  });
+
+  Array.prototype.forEach.call(document.querySelectorAll('input[name="vista"]'), function (i) {
+    i.addEventListener('change', function () {
+      pannelloQuadro.hidden = i.value !== 'quadro';
+      if (!pannelloQuadro.hidden) disegna();
+    });
+  });
+
   /* -------------------------------------------------------------- disegno */
   function disegna() {
     var lista = ordina(filtra());
     el.conteggio.textContent = lista.length + (lista.length === 1 ? ' scheda' : ' schede') +
       ' su ' + TUTTI.length;
     el.risultati.innerHTML = lista.map(FERMO.scheda).join('');
+    /* il quadro mostra sempre tutte le sedi, così si vede dove si potrebbe
+       allargare la ricerca; il filtro attivo resta marcato sul punto */
+    disegnaQuadro(stato.citta ? TUTTI : lista);
     el.niente.innerHTML = lista.length ? '' :
       '<div class="vuoto">' +
         '<div class="cifra" style="color:var(--filo)">∅</div>' +

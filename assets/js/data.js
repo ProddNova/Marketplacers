@@ -681,6 +681,78 @@
     }
   ];
 
+  /* --- Coordinate reali delle citta' a catalogo ---------------------------
+     Servono al quadro sinottico del catalogo: i punti sono le sedi vere,
+     proiettate in equirettangolare. La sagoma che si vede e' formata dalle
+     sedi stesse, non da un contorno disegnato a mano.                        */
+  var COORD = {
+    'Ancona': [43.62, 13.51],        'Bari': [41.12, 16.87],
+    'Bergamo': [45.70, 9.67],        'Bologna': [44.49, 11.34],
+    'Brescia': [45.54, 10.22],       'Carpi': [44.78, 10.88],
+    'Carrara': [44.08, 10.10],       'Caserta': [41.07, 14.33],
+    'Cesena': [44.14, 12.24],        'Firenze': [43.77, 11.26],
+    'Foggia': [41.46, 15.55],        'Genova': [44.41, 8.93],
+    'Lumezzane': [45.65, 10.26],     'Milano': [45.46, 9.19],
+    'Modena': [44.65, 10.93],        'Napoli': [40.85, 14.27],
+    'Novara': [45.45, 8.62],         'Padova': [45.41, 11.88],
+    'Palermo': [38.12, 13.36],       'Perugia': [43.11, 12.39],
+    'Pesaro': [43.91, 12.90],        'Piacenza': [45.05, 9.69],
+    'Prato': [43.88, 11.10],         'Reggio Emilia': [44.70, 10.63],
+    'Roma': [41.90, 12.50],          'Torino': [45.07, 7.69],
+    'Trento': [46.07, 11.12],        'Udine': [46.06, 13.24],
+    'Verona': [45.44, 10.99],        'Vicenza': [45.55, 11.55]
+  };
+  function coord(citta) { return COORD[citta] || null; }
+
+  /* --- Recensioni ---------------------------------------------------------
+     Generate dall'ID: coerenti col voto dichiarato e con la modalita'.       */
+  var AUTORI = [
+    'Studio Tecnico Ferrari', 'Nautica Sanremo srl', 'Prototipi Bianchi',
+    'Elettromeccanica Ionica', 'Design Lab Milano', 'Impianti Rossi & C.',
+    'Meccanica Superiore snc', 'Arredi Contract Veneto', 'Restauri Monumentali spa',
+    'Cooperativa Agricola Sud', 'Automazioni Brianza', 'Serramenti Alpini'
+  ];
+  var GIUDIZI = {
+    alto: [
+      'Consegna nei tempi dichiarati e pezzi in tolleranza al primo colpo. Ripeteremo.',
+      'Ci hanno risposto in tre ore e ci hanno salvato una commessa che stava slittando.',
+      'Macchina in ordine, reparto pulito, referente competente. Zero sorprese in fattura.',
+      'Abbiamo mandato un file discutibile e ci hanno richiamato per correggerlo prima di partire.',
+      'Preventivo rispettato al centesimo. Per noi che lavoriamo su lotti piccoli è raro.'
+    ],
+    medio: [
+      'Lavoro corretto, un giorno oltre la data promessa ma ci hanno avvisati per tempo.',
+      'Tutto a posto sul risultato. La documentazione di accompagnamento si può migliorare.',
+      'Buon rapporto qualità prezzo. L\'imballo per la spedizione era un po\' sbrigativo.',
+      'Nessun problema tecnico. Il preavviso richiesto è più lungo di quanto speravamo.'
+    ],
+    basso: [
+      'Risultato accettabile ma abbiamo dovuto rifinire due pezzi su venti.',
+      'Comunicazione lenta nella prima settimana, poi il lavoro è filato via liscio.'
+    ]
+  };
+
+  function recensioni(asset) {
+    if (!asset.recensioni) return [];
+    var r = rng(asset.id + '|rec');
+    var quante = Math.min(4, Math.max(2, Math.round(asset.recensioni / 40)));
+    var out = [];
+    for (var i = 0; i < quante; i++) {
+      var scarto = (r() - 0.35) * 1.4;
+      var voto = Math.max(3, Math.min(5, Math.round((asset.rating + scarto) * 2) / 2));
+      var fascia = voto >= 4.5 ? 'alto' : voto >= 4 ? 'medio' : 'basso';
+      var pool = GIUDIZI[fascia];
+      out.push({
+        autore: AUTORI[Math.floor(r() * AUTORI.length)],
+        voto: voto,
+        testo: pool[Math.floor(r() * pool.length)],
+        quando: new Date(Date.now() - Math.floor(r() * 240 + 8 + i * 30) * 86400000),
+        modalita: asset.mod[Math.floor(r() * asset.mod.length)]
+      });
+    }
+    return out.sort(function (a, b) { return b.quando - a.quando; });
+  }
+
   /* --- Derivazioni -------------------------------------------------------- */
   var GIORNI = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'];
 
@@ -754,6 +826,8 @@
     categoria: categoria,
     modalita: modalita,
     citta: citta,
+    coord: coord,
+    recensioni: recensioni,
     /* Parametri commerciali della piattaforma */
     COMMISSIONE: 0.09,
     ASSICURAZIONE: 0.035,
