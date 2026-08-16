@@ -1,175 +1,173 @@
 /* =============================================================================
-   FERMO — scheda del singolo bene: specifiche, calendario, preventivo, prenotazione
+   FERMO — scheda del singolo bene
+   Sul telefono la pagina è una colonna sola nell'ordine in cui si decide:
+   che cos'è, quando è libera, quanto costa. Il prezzo e il pulsante di
+   prenotazione restano fissi in basso, così non si perdono mai di vista.
    ========================================================================== */
 (function () {
   'use strict';
-  FERMO.avvia('');
+  FERMO.avvia('asset.html');
 
   var D = FERMO.D;
   var a = FERMO.trova(FERMO.param('id'));
   var contenuto = document.getElementById('contenuto');
+  var g = function (id) { return document.getElementById(id); };
 
   if (!a) {
-    document.getElementById('briciola').textContent = 'scheda non trovata';
+    g('briciola').textContent = 'scheda non trovata';
     contenuto.innerHTML =
-      '<div class="vuoto"><div class="cifra" style="color:var(--filo)">404</div>' +
-      '<p style="margin-top:12px"><strong>Questa matricola non è a catalogo.</strong></p>' +
-      '<a class="bottone" href="catalogo.html">Torna al catalogo</a></div>';
+      '<div class="vuoto">' +
+        '<h3>Questa matricola non è a catalogo</h3>' +
+        '<p class="piccolo">Il collegamento può essere vecchio, o la scheda è stata ritirata.</p>' +
+        '<a class="btn btn--primario" href="catalogo.html" style="margin-top:14px">Torna al catalogo</a>' +
+      '</div>';
+    document.getElementById('pagina').classList.remove('pagina--azioni');
     return;
   }
 
   var cat = D.categoria(a.cat);
   var u = FERMO.fmt.unita(a.prezzo.unita);
   var inVendita = a.prezzo.unita === 'corpo';
+  var prezzoTesto = inVendita ? FERMO.fmt.euroTondo(a.prezzo.valore) : FERMO.fmt.euro(a.prezzo.valore);
   document.title = a.titolo + ' — FERMO';
-  document.getElementById('briciola').textContent = cat.breve + ' / ' + a.id;
+  g('briciola').textContent = cat.breve;
 
-  /* ------------------------------------------------------------ modalità */
-  var timbriMod = a.mod.map(function (m) {
-    var md = D.modalita(m);
-    var stile = m === 'vendita' ? 'timbro--accento' : m === 'servizio' ? 'timbro--blu' : 'timbro--tenue';
-    return '<span class="timbro ' + stile + '">' + FERMO.esc(md.nome) + '</span>';
-  }).join('');
-
-  /* ---------------------------------------------------------- calendario */
+  var modScelta = a.mod[0];
+  var scelto = null;                      /* indice del giorno di inizio */
   var cal = D.calendario(a, 28);
-  var scelto = null;
 
+  /* --------------------------------------------------------- calendario -- */
   function grigliaCalendario() {
-    var testa = D.GIORNI.map(function (g) {
-      return '<div class="calendario__intestazione">' + g + '</div>';
+    var testa = D.GIORNI.map(function (x) {
+      return '<div class="calendario__testa">' + x + '</div>';
     }).join('');
-    /* allineo il primo giorno alla colonna del suo giorno della settimana */
     var vuoti = '';
     for (var v = 0; v < cal[0].dow; v++) vuoti += '<div></div>';
-    var celle = cal.map(function (g, i) {
-      var libero = g.stato === 'libero' || g.stato === 'parziale';
-      var etichetta = g.data.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' }) +
-        ' — ' + ({ libero: 'libero', parziale: 'parzialmente libero', occupato: 'occupato', chiuso: 'non prenotabile' })[g.stato];
-      return '<button class="giorno" type="button" data-stato="' + g.stato + '" data-i="' + i + '" ' +
+    var celle = cal.map(function (x, i) {
+      var libero = x.stato === 'libero' || x.stato === 'parziale';
+      var etichetta = x.data.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' }) +
+        ' — ' + ({ libero: 'libero', parziale: 'parzialmente libero', occupato: 'occupato',
+                   chiuso: 'non prenotabile' })[x.stato];
+      return '<button class="giorno" type="button" data-stato="' + x.stato + '" data-i="' + i + '" ' +
         (libero ? '' : 'disabled ') +
         'aria-pressed="' + (scelto === i ? 'true' : 'false') + '" title="' + FERMO.esc(etichetta) + '">' +
-        '<span class="numerico">' + g.data.getDate() + '</span>' +
-        '<small>' + (g.stato === 'parziale' ? g.oreLibere + 'h' : g.stato === 'libero' ? 'lib' : '—') + '</small>' +
-        '</button>';
+        '<span>' + x.data.getDate() + '</span>' +
+        '<small>' + (x.stato === 'parziale' ? x.oreLibere + 'h' : x.stato === 'libero' ? 'lib' : '—') + '</small>' +
+      '</button>';
     }).join('');
     return '<div class="calendario">' + testa + vuoti + celle + '</div>';
   }
 
-  /* -------------------------------------------------------------- disegno */
-  var specifiche = (a.specifiche || []).map(function (s) {
-    return '<tr><td>' + FERMO.esc(s[0]) + '</td><td><strong>' + FERMO.esc(s[1]) + '</strong></td></tr>';
-  }).join('');
+  /* ------------------------------------------------------------- pezzi ---- */
+  var pillole = a.mod.map(function (m) {
+    var md = D.modalita(m);
+    var stile = m === 'vendita' ? ' pillola--accento' : m === 'servizio' ? ' pillola--blu' : '';
+    return '<span class="pillola' + stile + '">' + FERMO.esc(md.nome) + '</span>';
+  }).join('') +
+    (a.verificato ? '<span class="pillola pillola--verde">✓ Fornitore verificato</span>' : '') +
+    (a.origine === 'utente' ? '<span class="pillola pillola--accento">Tuo annuncio</span>' : '');
 
-  var elenco = function (voci, segno) {
-    return '<ul style="margin:0;padding-left:0;list-style:none">' + voci.map(function (v) {
-      return '<li style="display:flex;gap:8px;padding:4px 0;border-bottom:1px solid var(--filo)">' +
-        '<span aria-hidden="true" style="color:' + (segno === '+' ? 'var(--verde)' : 'var(--allarme)') + ';font-weight:700">' +
-        segno + '</span><span>' + FERMO.esc(v) + '</span></li>';
-    }).join('') + '</ul>';
+  var LOGISTICA = {
+    'in-sede': 'Si lavora in sede del fornitore',
+    'spedizione': 'Il cliente spedisce i pezzi',
+    'ritiro': 'Ritiro e riconsegna sul posto'
   };
 
-  contenuto.innerHTML = '' +
-  '<div class="impianto">' +
+  function fatto(nome, valore) {
+    return '<div><div class="piccolo fioco">' + FERMO.esc(nome) + '</div>' +
+      '<div class="grassetto" style="font-size:14.5px">' + FERMO.esc(valore) + '</div></div>';
+  }
 
-    /* ------------------------------------------------ colonna principale */
+  var specifiche = (a.specifiche || []).map(function (s) {
+    return '<tr><td>' + FERMO.esc(s[0]) + '</td><td class="grassetto">' + FERMO.esc(s[1]) + '</td></tr>';
+  }).join('');
+
+  function elenco(voci, dentro) {
+    if (!voci.length) return '<p class="piccolo fioco">Niente di dichiarato.</p>';
+    return '<ul class="pila pila--fitta" style="margin:0;padding:0;list-style:none">' + voci.map(function (v) {
+      return '<li class="riga riga--stretta" style="gap:8px;align-items:flex-start">' +
+        '<span style="color:var(--' + (dentro ? 'verde' : 'testo-3') + ');font-weight:700">' +
+          (dentro ? '✓' : '−') + '</span>' +
+        '<span class="piccolo">' + FERMO.esc(v) + '</span></li>';
+    }).join('') + '</ul>';
+  }
+
+  /* ------------------------------------------------------------- disegno -- */
+  contenuto.innerHTML = '' +
+  '<div class="doppia">' +
+
+    /* --------------------------------------------- colonna: che cos'è */
     '<div class="pila">' +
 
-      '<div class="blocco">' +
-        '<div class="blocco__testa">' +
-          '<span class="numerico">' + FERMO.esc(a.id) + '</span>' +
-          '<span class="spinta">' + FERMO.esc(cat.nome) + '</span>' +
-        '</div>' +
-        '<div class="scheda__figura" style="border-bottom:2px solid var(--inchiostro);aspect-ratio:auto;padding:26px">' +
-          FERMO.glifo(cat.glifo) +
-        '</div>' +
-        '<div class="blocco__corpo">' +
-          '<div class="riga" style="gap:6px;margin-bottom:12px">' + timbriMod +
-            (a.verificato ? '<span class="timbro timbro--verde">✓ Fornitore verificato</span>' : '<span class="timbro timbro--tenue">Non verificato</span>') +
-            (a.origine === 'utente' ? '<span class="timbro timbro--hivis">Tuo annuncio</span>' : '') +
-          '</div>' +
-          '<h1 style="font-size:clamp(22px,3.4vw,34px);text-transform:none">' + FERMO.esc(a.titolo) + '</h1>' +
-          '<p class="piccolo tenue" style="margin:10px 0 16px">' +
-            FERMO.esc(a.fornitore) + ' · ' + FERMO.esc(a.citta) + ' (' + FERMO.esc(a.prov) + '), ' + FERMO.esc(a.regione) +
-            ' · attivo dal ' + a.dal +
+      '<div class="carta">' +
+        '<div class="bene__fig" style="aspect-ratio:16/9;border-bottom:1px solid var(--bordo);' +
+             'border-radius:12px 12px 0 0">' + FERMO.glifo(cat.glifo) + '</div>' +
+        '<div class="carta__corpo">' +
+          '<div class="riga" style="gap:6px;margin-bottom:12px">' + pillole + '</div>' +
+          '<h1 style="font-size:clamp(22px,5.5vw,30px)">' + FERMO.esc(a.titolo) + '</h1>' +
+          '<p class="piccolo tenue" style="margin:10px 0 14px">' +
+            FERMO.esc(a.fornitore) + ' · ' + FERMO.esc(a.citta) + ' (' + FERMO.esc(a.prov) + ')' +
+            ' · sul mercato dal ' + a.dal +
             (a.recensioni ? ' · ★ ' + a.rating.toFixed(1) + ' su ' + a.recensioni + ' lavori' : '') +
           '</p>' +
-          '<p>' + FERMO.esc(a.sintesi) + '</p>' +
+          '<p class="tenue">' + FERMO.esc(a.sintesi) + '</p>' +
           (a.oreSettimana ? '<div style="margin-top:16px">' + FERMO.misuraSaturazione(a) + '</div>' : '') +
         '</div>' +
-      '</div>' +
-
-      '<div class="blocco">' +
-        '<div class="blocco__testa">Scheda tecnica</div>' +
-        '<div class="involucro-scorrevole">' +
-          '<table class="tabella tabella--specifiche"><tbody>' + specifiche +
-          '<tr><td>Impegno minimo</td><td><strong>' + FERMO.esc(a.minimo) + '</strong></td></tr>' +
-          '<tr><td>Preavviso</td><td><strong>' + a.preavviso + ' giorni</strong></td></tr>' +
-          '<tr><td>Logistica</td><td><strong>' +
-            ({ 'in-sede': 'Lavorazione in sede del fornitore', 'spedizione': 'Spedizione pezzi a carico del cliente',
-               'ritiro': 'Ritiro e riconsegna sul posto' })[a.logistica] + '</strong></td></tr>' +
-          '</tbody></table>' +
+        '<div class="carta__piede">' +
+          '<div class="griglia griglia--2" style="gap:14px">' +
+            fatto('Impegno minimo', a.minimo) +
+            fatto('Preavviso', a.preavviso + ' giorni') +
+            fatto('Logistica', LOGISTICA[a.logistica] || '—') +
+            fatto('Categoria', cat.nome) +
+          '</div>' +
         '</div>' +
       '</div>' +
 
-      '<div class="griglia-2">' +
-        '<div class="blocco"><div class="blocco__testa">Compreso nel prezzo</div>' +
-          '<div class="blocco__corpo">' + elenco(a.incluso, '+') + '</div></div>' +
-        '<div class="blocco"><div class="blocco__testa">A parte</div>' +
-          '<div class="blocco__corpo">' + elenco(a.escluso, '−') + '</div></div>' +
-      '</div>' +
-
-      (a.certificazioni.length ?
-      '<div class="blocco"><div class="blocco__testa">Certificazioni e conformità</div>' +
-        '<div class="blocco__corpo riga">' + a.certificazioni.map(function (c) {
-          return '<span class="timbro timbro--verde">' + FERMO.esc(c) + '</span>';
-        }).join('') + '</div></div>' : '') +
-
       (inVendita ? '' :
-      '<div class="blocco" id="blocco-calendario">' +
-        '<div class="blocco__testa">Disponibilità · prossimi 28 giorni</div>' +
-        '<div class="blocco__corpo">' +
-          '<div class="legenda" style="margin-bottom:12px">' +
-            '<span><i style="background:var(--pannello)"></i>Libero</span>' +
-            '<span><i style="background:var(--hivis)"></i>Parziale</span>' +
-            '<span><i style="background:var(--traccia)"></i>Occupato</span>' +
-            '<span><i style="background:transparent;border-style:dashed"></i>Fuori preavviso</span>' +
+      '<div class="carta" id="blocco-calendario">' +
+        '<div class="carta__testa">Quando è libera' +
+          '<span class="spinta piccolo fioco">prossimi 28 giorni</span></div>' +
+        '<div class="carta__corpo">' +
+          '<div class="riga" style="gap:6px;margin-bottom:14px">' +
+            '<span class="pillola">Libero</span>' +
+            '<span class="pillola pillola--ambra">Parziale</span>' +
+            '<span class="pillola">Occupato</span>' +
           '</div>' +
           '<div id="calendario-innesto">' + grigliaCalendario() + '</div>' +
-          '<p class="campo__aiuto" style="margin-top:10px">Scegli il giorno di inizio. ' +
-            'I giorni entro il preavviso di ' + a.preavviso + ' giorni non sono prenotabili.</p>' +
+          '<p class="campo__aiuto">Tocca il giorno di inizio. I giorni entro il preavviso di ' +
+            a.preavviso + ' giorni non sono prenotabili.</p>' +
         '</div>' +
       '</div>') +
 
     '</div>' +
 
-    /* ---------------------------------------------------- colonna laterale */
-    '<div class="pila appiccicoso">' +
-      '<div class="blocco">' +
-        '<div class="blocco__testa">' + (inVendita ? 'Proposta d\'acquisto' : 'Preventivo') + '</div>' +
-        '<div class="blocco__corpo pila">' +
+    /* ------------------------------------------ colonna: quanto costa */
+    '<div class="pila attaccata">' +
+      '<div class="carta carta--rilievo" id="preventivo" data-id="' + FERMO.esc(a.id) + '">' +
+        '<div class="carta__testa">' + (inVendita ? 'Fai una proposta' : 'Preventivo') + '</div>' +
+        '<div class="carta__corpo">' +
 
-          '<div>' +
-            '<div class="prezzo numerico" style="font-size:30px">' +
-              (inVendita ? FERMO.fmt.euroTondo(a.prezzo.valore) : FERMO.fmt.euro(a.prezzo.valore)) +
-              '<small>' + FERMO.esc(u.suffisso) + '</small>' +
-            '</div>' +
-            '<div class="piccolo tenue">Minimo: ' + FERMO.esc(a.minimo) + '</div>' +
+          '<div class="riga riga--fra" style="margin-bottom:16px">' +
+            '<span class="cifra cifra--piccola">' + prezzoTesto +
+              ' <span class="piccolo fioco" style="font-weight:500">' + FERMO.esc(u.suffisso) + '</span></span>' +
+            '<span class="piccolo fioco">min. ' + FERMO.esc(a.minimo) + '</span>' +
           '</div>' +
 
           (a.mod.length > 1 ?
-          '<div class="campo"><span class="campo__nome">Modalità</span>' +
-            '<div class="scelte">' + a.mod.map(function (m, i) {
-              return '<label class="scelta"><input type="radio" name="modalita" value="' + m + '"' +
-                (i === 0 ? ' checked' : '') + '><span>' + FERMO.esc(D.modalita(m).nome) + '</span></label>';
+          '<div class="campo">' +
+            '<span class="campo__nome">Modalità</span>' +
+            '<div class="riga" style="gap:8px">' + a.mod.map(function (m, i) {
+              return '<button class="chip" type="button" data-modalita="' + m + '" aria-pressed="' +
+                (i === 0 ? 'true' : 'false') + '">' + FERMO.esc(D.modalita(m).nome) + '</button>';
             }).join('') + '</div>' +
-            '<p class="campo__aiuto" id="nota-modalita"></p>' +
-          '</div>' : '<p class="campo__aiuto" id="nota-modalita"></p>') +
+            '<span class="campo__aiuto" id="nota-modalita"></span>' +
+          '</div>' : '<p class="campo__aiuto" id="nota-modalita" style="margin-top:0"></p>') +
 
           (inVendita ?
           '<label class="campo"><span class="campo__nome">La tua offerta (€)</span>' +
             '<input type="number" id="quantita" min="0" step="100" value="' + a.prezzo.valore + '">' +
-            '<span class="campo__aiuto">Prezzo richiesto ' + FERMO.fmt.euroTondo(a.prezzo.valore) + '. Le proposte sotto il 15 % vengono raramente accettate.</span>' +
+            '<span class="campo__aiuto">Prezzo richiesto ' + FERMO.fmt.euroTondo(a.prezzo.valore) +
+              '. Sotto il 15 % le proposte vengono raramente accettate.</span>' +
           '</label>'
           :
           '<label class="campo"><span class="campo__nome">' + FERMO.esc(u.quantita) + '</span>' +
@@ -177,84 +175,121 @@
             '<span class="campo__aiuto" id="finestra">—</span>' +
           '</label>') +
 
-          '<div class="campo"><span class="campo__nome">Opzioni</span>' +
-            '<label class="riga" style="gap:9px;flex-wrap:nowrap;cursor:pointer">' +
-              '<input type="checkbox" id="opt-assicurazione" style="width:auto" checked>' +
-              '<span class="piccolo">Copertura danni (3,5 %)</span></label>' +
-            '<label class="riga" style="gap:9px;flex-wrap:nowrap;cursor:pointer;margin-top:7px">' +
-              '<input type="checkbox" id="opt-trasporto" style="width:auto">' +
-              '<span class="piccolo">Trasporto andata/ritorno (180 €)</span></label>' +
+          '<div class="campo">' +
+            '<span class="campo__nome">Opzioni</span>' +
+            (inVendita ? '' :
+            '<label class="spunta"><input type="checkbox" id="opt-assicurazione" checked> ' +
+              'Copertura danni (3,5 %)</label>') +
+            '<label class="spunta"><input type="checkbox" id="opt-trasporto"> ' +
+              'Trasporto andata e ritorno (180 €)</label>' +
           '</div>' +
 
-          '<div class="involucro-scorrevole" style="border-top:2px solid var(--inchiostro);padding-top:6px">' +
-            '<table class="tabella piccolo" id="conto"></table>' +
-          '</div>' +
+          '<table class="tabella tabella--conto" id="conto" style="margin-top:6px"></table>' +
 
-          '<button class="bottone bottone--primario bottone--largo" type="button" id="prenota">' +
-            (inVendita ? 'Invia proposta' : 'Prenota') + '</button>' +
-          '<button class="bottone bottone--largo bottone--nudo" type="button" data-azione="preferito" ' +
-            'aria-pressed="' + (FERMO.preferito(a.id) ? 'true' : 'false') + '">★ Salva tra i preferiti</button>' +
+          '<div class="pila pila--fitta" style="margin-top:18px">' +
+            '<button class="btn btn--primario btn--largo" type="button" id="prenota">' +
+              (inVendita ? 'Invia la proposta' : 'Prenota') + '</button>' +
+            '<button class="btn btn--largo" type="button" data-azione="preferito" id="salva" ' +
+              'aria-pressed="' + (FERMO.preferito(a.id) ? 'true' : 'false') + '">' +
+              (FERMO.preferito(a.id) ? 'Salvato ✓' : 'Salva tra i preferiti') + '</button>' +
+          '</div>' +
           '<p class="campo__aiuto centrato">Nessun addebito: è una demo. ' +
-            'La richiesta finisce nelle tue prenotazioni.</p>' +
+            'La richiesta finisce fra le tue.</p>' +
         '</div>' +
       '</div>' +
 
-      '<div class="blocco blocco--piatto">' +
-        '<div class="blocco__testa">Il fornitore</div>' +
-        '<div class="blocco__corpo pila piccolo">' +
-          '<div><strong>' + FERMO.esc(a.fornitore) + '</strong></div>' +
-          '<div class="tenue">' + FERMO.esc(a.citta) + ' (' + FERMO.esc(a.prov) + ') · sul mercato dal ' + a.dal + '</div>' +
+      '<div class="carta">' +
+        '<div class="carta__testa">Il fornitore</div>' +
+        '<div class="carta__corpo pila pila--fitta">' +
+          '<strong>' + FERMO.esc(a.fornitore) + '</strong>' +
+          '<span class="piccolo tenue">' + FERMO.esc(a.citta) + ' (' + FERMO.esc(a.prov) + ') · ' +
+            FERMO.esc(a.regione) + ' · sul mercato dal ' + a.dal + '</span>' +
           (a.recensioni ?
-            '<div class="riga riga--fra"><span class="etichetta">Valutazione</span>' +
-            '<span class="numerico">★ ' + a.rating.toFixed(1) + ' / 5 · ' + a.recensioni + ' lavori</span></div>' : '') +
-          '<div class="riga riga--fra"><span class="etichetta">Risposta media</span><span class="numerico">' +
-            (a.verificato ? 'entro 6 ore' : 'entro 2 giorni') + '</span></div>' +
+            '<div class="riga riga--fra piccolo"><span class="tenue">Valutazione</span>' +
+            '<span class="num grassetto">★ ' + a.rating.toFixed(1) + ' / 5 · ' + a.recensioni + ' lavori</span></div>' : '') +
+          '<div class="riga riga--fra piccolo"><span class="tenue">Risposta media</span>' +
+            '<span class="grassetto">' + (a.verificato ? 'entro 6 ore' : 'entro 2 giorni') + '</span></div>' +
         '</div>' +
       '</div>' +
     '</div>' +
   '</div>' +
 
-  '<section class="sezione--stretta">' +
-    '<div class="capo"><span class="capo__n">[REC]</span><h2>Chi ci ha lavorato</h2>' +
-    '<span class="capo__nota">' + (a.recensioni ? a.recensioni + ' lavori valutati' : 'Nessuno storico') + '</span></div>' +
-    '<div class="blocco"><div class="blocco__corpo">' +
+  /* ------------------------------------------------------- il resto */
+  '<section class="sezione">' +
+    '<div class="capo"><h2>Scheda tecnica</h2></div>' +
+    '<div class="carta"><div class="scorre">' +
+      '<table class="tabella tabella--chiave"><tbody>' + specifiche +
+        '<tr><td>Impegno minimo</td><td class="grassetto">' + FERMO.esc(a.minimo) + '</td></tr>' +
+        '<tr><td>Preavviso</td><td class="grassetto">' + a.preavviso + ' giorni</td></tr>' +
+        '<tr><td>Logistica</td><td class="grassetto">' + FERMO.esc(LOGISTICA[a.logistica] || '—') + '</td></tr>' +
+      '</tbody></table>' +
+    '</div></div>' +
+
+    '<div class="griglia griglia--auto" style="margin-top:16px">' +
+      '<div class="carta"><div class="carta__testa">Compreso nel prezzo</div>' +
+        '<div class="carta__corpo">' + elenco(a.incluso, true) + '</div></div>' +
+      '<div class="carta"><div class="carta__testa">A parte</div>' +
+        '<div class="carta__corpo">' + elenco(a.escluso, false) + '</div></div>' +
+    '</div>' +
+
+    (a.certificazioni.length ?
+    '<div class="carta" style="margin-top:16px"><div class="carta__testa">Certificazioni</div>' +
+      '<div class="carta__corpo riga" style="gap:8px">' + a.certificazioni.map(function (c) {
+        return '<span class="pillola pillola--verde">' + FERMO.esc(c) + '</span>';
+      }).join('') + '</div></div>' : '') +
+  '</section>' +
+
+  '<section class="sezione">' +
+    '<div class="capo"><h2>Chi ci ha lavorato</h2>' +
+      '<span class="capo__nota">' + (a.recensioni ? a.recensioni + ' lavori valutati' : 'nessuno storico') + '</span></div>' +
+    '<div class="carta"><div class="carta__corpo">' +
       (a.recensioni ?
-        '<div class="riga riga--fra" style="border-bottom:1px solid var(--filo);padding-bottom:12px;margin-bottom:16px">' +
-          '<div class="riga" style="gap:12px">' +
-            '<span class="cifra cifra--media numerico">' + a.rating.toFixed(1) + '</span>' +
-            '<div>' + FERMO.stelle(a.rating) +
-              '<div class="piccolo tenue">su ' + a.recensioni + ' lavori conclusi</div></div>' +
-          '</div>' +
-          '<span class="piccolo tenue">Solo chi ha davvero prenotato può lasciare un giudizio.</span>' +
+        '<div class="riga" style="gap:14px;padding-bottom:14px;margin-bottom:16px;' +
+             'border-bottom:1px solid var(--bordo)">' +
+          '<span class="cifra cifra--piccola">' + a.rating.toFixed(1) + '</span>' +
+          '<div>' + FERMO.stelle(a.rating) +
+            '<div class="piccolo fioco">su ' + a.recensioni + ' lavori conclusi</div></div>' +
         '</div>' : '') +
       FERMO.muroRecensioni(a) +
     '</div></div>' +
   '</section>' +
 
   '<section class="sezione">' +
-    '<div class="capo"><span class="capo__n">[SIM]</span><h2>Capacità simile</h2>' +
-    '<span class="capo__nota">Stessa categoria</span></div>' +
-    '<div class="esiti" id="simili"></div>' +
+    '<div class="capo"><h2>Capacità simile</h2></div>' +
+    '<div class="elenco-beni" id="simili"></div>' +
   '</section>';
 
-  /* ------------------------------------------------------ dati derivati */
+  /* barra fissa in basso: il prezzo e l'azione restano sempre a portata */
+  var barra = document.createElement('div');
+  barra.className = 'azioni-fisse';
+  barra.innerHTML =
+    '<div class="azioni-fisse__prezzo">' +
+      '<div class="grassetto num" style="font-size:18px">' + prezzoTesto + '</div>' +
+      '<div class="piccolo fioco">' + FERMO.esc(u.suffisso.replace(/^ /, '')) + '</div>' +
+    '</div>' +
+    '<button class="btn btn--primario spinta" type="button" id="prenota-fisso">' +
+      (inVendita ? 'Fai una proposta' : 'Prenota') + '</button>';
+  document.body.appendChild(barra);
+  document.body.classList.add('ha-azioni');
+
+  /* il pulsante «salva» dice anche in che stato è finito */
+  document.addEventListener('fermo:preferiti', function () {
+    var b = g('salva');
+    if (b) b.textContent = b.getAttribute('aria-pressed') === 'true' ? 'Salvato ✓' : 'Salva tra i preferiti';
+  });
+
+  /* ------------------------------------------------------ dati derivati -- */
   function quantitaIniziale() {
     var m = String(a.minimo).match(/\d+/);
     return m ? parseInt(m[0], 10) : 1;
   }
 
-  /* --------------------------------------------------------- interazioni */
-  var elQuantita = document.getElementById('quantita');
-  var elConto = document.getElementById('conto');
-  var elFinestra = document.getElementById('finestra');
-  var elAss = document.getElementById('opt-assicurazione');
-  var elTra = document.getElementById('opt-trasporto');
-  var notaMod = document.getElementById('nota-modalita');
-
-  function modalitaScelta() {
-    var r = document.querySelector('input[name="modalita"]:checked');
-    return r ? r.value : a.mod[0];
-  }
+  var elQuantita = g('quantita');
+  var elConto = g('conto');
+  var elFinestra = g('finestra');
+  var elAss = g('opt-assicurazione');
+  var elTra = g('opt-trasporto');
+  var notaMod = g('nota-modalita');
 
   function finestra() {
     if (inVendita || scelto === null) return null;
@@ -264,6 +299,10 @@
                    m3mese: q ? 30 : 1, palletmese: 30, km: 1 }[a.prezzo.unita] || 1;
     var fine = new Date(inizio.getTime() + Math.max(0, giorni - 1) * 86400000);
     return { inizio: inizio, fine: fine };
+  }
+
+  function riga(k, v) {
+    return '<tr><td>' + k + '</td><td class="num">' + v + '</td></tr>';
   }
 
   function aggiorna() {
@@ -283,7 +322,7 @@
         riga('Commissione 9 %', FERMO.fmt.euro(p.commissione)) +
         (p.trasporto ? riga('Trasporto', FERMO.fmt.euro(p.trasporto)) : '') +
         riga('IVA 22 %', FERMO.fmt.euro(p.iva)) +
-        riga('<strong>Totale se accettata</strong>', '<strong>' + FERMO.fmt.euroTondo(p.totale) + '</strong>');
+        riga('Totale se accettata', FERMO.fmt.euroTondo(p.totale));
     } else {
       p = FERMO.preventivo(a, q, { assicurazione: elAss.checked, trasporto: elTra.checked });
       elConto.innerHTML =
@@ -292,30 +331,33 @@
         (p.assicurazione ? riga('Copertura danni', FERMO.fmt.euro(p.assicurazione)) : '') +
         (p.trasporto ? riga('Trasporto', FERMO.fmt.euro(p.trasporto)) : '') +
         riga('IVA 22 %', FERMO.fmt.euro(p.iva)) +
-        riga('<strong>Totale</strong>', '<strong>' + FERMO.fmt.euro(p.totale) + '</strong>');
+        riga('Totale', FERMO.fmt.euro(p.totale));
 
       var f = finestra();
       elFinestra.textContent = f
         ? 'Dal ' + FERMO.fmt.data(f.inizio) + ' al ' + FERMO.fmt.data(f.fine)
-        : 'Scegli il giorno di inizio dal calendario qui a fianco.';
+        : 'Scegli il giorno di inizio nel calendario.';
     }
 
-    if (notaMod) notaMod.textContent = D.modalita(modalitaScelta()).nota;
+    if (notaMod) notaMod.textContent = D.modalita(modScelta).nota;
     return p;
   }
 
-  function riga(k, v) {
-    return '<tr><td>' + k + '</td><td class="num numerico">' + v + '</td></tr>';
-  }
-
-  document.addEventListener('input', function (e) {
-    if (e.target.closest('.appiccicoso')) aggiorna();
+  /* -------------------------------------------------------- interazioni -- */
+  var pannelloPrev = g('preventivo');
+  pannelloPrev.addEventListener('input', aggiorna);
+  pannelloPrev.addEventListener('change', aggiorna);
+  pannelloPrev.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-modalita]');
+    if (!b) return;
+    modScelta = b.getAttribute('data-modalita');
+    Array.prototype.forEach.call(pannelloPrev.querySelectorAll('[data-modalita]'), function (x) {
+      x.setAttribute('aria-pressed', x === b ? 'true' : 'false');
+    });
+    aggiorna();
   });
-  document.addEventListener('change', function (e) {
-    if (e.target.closest('.appiccicoso')) aggiorna();
-  });
 
-  var innesto = document.getElementById('calendario-innesto');
+  var innesto = g('calendario-innesto');
   if (innesto) {
     innesto.addEventListener('click', function (e) {
       var b = e.target.closest('.giorno');
@@ -326,11 +368,11 @@
     });
   }
 
-  document.getElementById('prenota').addEventListener('click', function () {
+  function prenota() {
     var q = parseFloat(elQuantita.value) || 0;
     if (!inVendita && scelto === null) {
-      FERMO.brindisi('Manca la data', 'Scegli il giorno di inizio nel calendario prima di prenotare.');
-      var bc = document.getElementById('blocco-calendario');
+      FERMO.brindisi('Manca la data', 'Scegli il giorno di inizio nel calendario.');
+      var bc = g('blocco-calendario');
       if (bc) bc.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
@@ -345,7 +387,7 @@
       titolo: a.titolo,
       fornitore: a.fornitore,
       citta: a.citta,
-      modalita: modalitaScelta(),
+      modalita: modScelta,
       quantita: q,
       unita: a.prezzo.unita,
       inizio: f ? f.inizio.toISOString() : null,
@@ -353,17 +395,20 @@
       totale: p.totale,
       tipo: inVendita ? 'offerta' : 'prenotazione'
     });
-    FERMO.brindisi(inVendita ? 'Proposta inviata · ' + codice : 'Prenotazione registrata · ' + codice,
-      inVendita ? 'Il fornitore risponde entro 48 ore. La trovi in Prenotazioni.'
-                : 'In attesa di conferma dal fornitore. La trovi in Prenotazioni.');
+    FERMO.brindisi(inVendita ? 'Proposta inviata · ' + codice : 'Richiesta inviata · ' + codice,
+      inVendita ? 'Il fornitore risponde entro 48 ore.'
+                : 'In attesa di conferma dal fornitore.');
     setTimeout(function () { location.href = 'prenotazioni.html'; }, 1100);
-  });
+  }
 
-  /* ------------------------------------------------------------- simili */
+  g('prenota').addEventListener('click', prenota);
+  g('prenota-fisso').addEventListener('click', prenota);
+
+  /* ------------------------------------------------------------- simili -- */
   var simili = FERMO.catalogo().filter(function (x) {
     return x.id !== a.id && (x.cat === a.cat || x.regione === a.regione);
-  }).slice(0, 3);
-  document.getElementById('simili').innerHTML = simili.length
+  }).slice(0, 4);
+  g('simili').innerHTML = simili.length
     ? simili.map(FERMO.scheda).join('')
     : '<p class="tenue">Nessuna scheda simile a catalogo.</p>';
 

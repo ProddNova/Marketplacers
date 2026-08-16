@@ -1,25 +1,28 @@
 /* =============================================================================
    FERMO — lato domanda: richieste inviate e beni salvati
+   Ogni richiesta è una carta: stato in alto, percorso in mezzo, conversazione
+   richiudibile in fondo. Sul telefono non c'è niente da far scorrere di lato.
    ========================================================================== */
 (function () {
   'use strict';
   FERMO.avvia('prenotazioni.html');
 
   var g = function (id) { return document.getElementById(id); };
+  var esc = FERMO.esc;
 
   var STATI = {
-    'in-attesa': { testo: 'In attesa di conferma', timbro: 'timbro--hivis',
-                   nota: 'Il fornitore ha 24 ore per rispondere. L\'importo non è ancora addebitato.' },
-    'confermata': { testo: 'Confermata', timbro: 'timbro--verde',
-                    nota: 'Importo vincolato: viene liberato al fornitore a lavoro consegnato.' },
-    'lavorazione': { testo: 'In lavorazione', timbro: 'timbro--blu',
-                     nota: 'Il fornitore ha preso in carico il lavoro. Aggiornamenti nella conversazione.' },
-    'consegnata': { testo: 'Consegnata', timbro: 'timbro--verde',
-                    nota: 'Hai cinque giorni lavorativi per contestare, poi l\'importo viene saldato.' },
-    'pagata': { testo: 'Saldata', timbro: 'timbro--verde',
-                nota: 'Pratica chiusa. Puoi lasciare una valutazione al fornitore.' },
-    'annullata': { testo: 'Annullata', timbro: 'timbro--tenue',
-                   nota: 'Nessun addebito.' }
+    'in-attesa':   { testo: 'In attesa di conferma', pillola: 'pillola--ambra',
+                     nota: 'Il fornitore ha 24 ore per rispondere. Nessun addebito per ora.' },
+    'confermata':  { testo: 'Confermata', pillola: 'pillola--verde',
+                     nota: 'Importo vincolato: si libera al fornitore a lavoro consegnato.' },
+    'lavorazione': { testo: 'In lavorazione', pillola: 'pillola--blu',
+                     nota: 'Il fornitore ha preso in carico il lavoro.' },
+    'consegnata':  { testo: 'Consegnata', pillola: 'pillola--verde',
+                     nota: 'Hai cinque giorni lavorativi per contestare, poi si salda.' },
+    'pagata':      { testo: 'Saldata', pillola: 'pillola--verde',
+                     nota: 'Pratica chiusa. Puoi lasciare una valutazione al fornitore.' },
+    'annullata':   { testo: 'Annullata', pillola: '',
+                     nota: 'Nessun addebito.' }
   };
 
   /* risposte pronte del fornitore, così la conversazione risponde davvero */
@@ -30,89 +33,10 @@
     'Perfetto, procediamo così. Grazie per la precisione dei dati.'
   ];
 
-  function disegnaPrenotazioni() {
-    var p = FERMO.store.tutto().prenotazioni;
-    var box = g('lista-prenotazioni');
-
-    if (!p.length) {
-      g('riepilogo').textContent = 'nessuna richiesta';
-      box.innerHTML =
-        '<div class="vuoto">' +
-          '<div class="cifra" style="color:var(--filo)">∅</div>' +
-          '<p style="margin-top:12px"><strong>Non hai ancora prenotato niente.</strong></p>' +
-          '<p class="piccolo">Apri una scheda, scegli il giorno di inizio e la quantità: ' +
-            'la richiesta compare qui.</p>' +
-          '<a class="bottone bottone--primario" href="catalogo.html">Vai al catalogo →</a>' +
-        '</div>';
-      return;
-    }
-
-    var attive = p.filter(function (x) { return x.stato !== 'annullata'; });
-    var somma = attive.reduce(function (t, x) { return t + x.totale; }, 0);
-    g('riepilogo').textContent = attive.length + ' attive · ' + FERMO.fmt.euroTondo(somma);
-
-    box.innerHTML = '<div class="pila">' + p.map(function (x, i) {
-      var st = STATI[x.stato] || STATI['in-attesa'];
-      var quando = x.inizio
-        ? FERMO.fmt.data(new Date(x.inizio)) +
-          (x.fine && x.fine !== x.inizio ? ' → ' + FERMO.fmt.data(new Date(x.fine)) : '')
-        : 'da concordare';
-
-      return '<article class="blocco">' +
-        '<div class="blocco__testa">' +
-          '<span class="numerico">' + FERMO.esc(x.codice) + '</span>' +
-          '<span class="timbro ' + st.timbro + '">' + st.testo + '</span>' +
-          '<span class="spinta piccolo tenue">' +
-            (x.tipo === 'offerta' ? 'Proposta d\'acquisto' : 'Prenotazione') + ' · ' +
-            FERMO.fmt.data(new Date(x.creata)) + '</span>' +
-        '</div>' +
-        '<div class="blocco__corpo">' +
-          '<div class="riga riga--fra" style="align-items:flex-start">' +
-            '<div style="max-width:52ch">' +
-              '<a href="asset.html?id=' + encodeURIComponent(x.assetId) + '"><strong>' +
-                FERMO.esc(x.titolo) + '</strong></a>' +
-              '<div class="piccolo tenue" style="margin-top:4px">' +
-                FERMO.esc(x.fornitore) + ' · ' + FERMO.esc(x.citta) + '</div>' +
-            '</div>' +
-            '<div style="text-align:right">' +
-              '<div class="cifra cifra--media numerico">' + FERMO.fmt.euro(x.totale) + '</div>' +
-              '<div class="piccolo tenue">IVA inclusa</div>' +
-            '</div>' +
-          '</div>' +
-
-          '<div class="griglia-4" style="margin-top:18px;border-top:1px solid var(--filo);padding-top:14px">' +
-            campo('Quando', quando) +
-            campo('Quantità', x.tipo === 'offerta' ? FERMO.fmt.euroTondo(x.quantita) :
-              FERMO.fmt.conta(x.quantita, x.unita)) +
-            campo('Modalità', FERMO.D.modalita(x.modalita).nome) +
-            campo('Stato', st.testo) +
-          '</div>' +
-
-          '<div style="margin-top:16px">' + FERMO.linea(x.stato) + '</div>' +
-
-          '<p class="campo__aiuto" style="margin-top:12px">' + st.nota + '</p>' +
-
-          conversazione(x, i) +
-
-          (x.stato === 'annullata' ? '' :
-          '<div class="riga" style="margin-top:14px;border-top:1px solid var(--filo);padding-top:14px">' +
-            (avanzabile(x.stato) ?
-              '<button class="bottone bottone--piccolo bottone--primario" data-azione="avanza" data-i="' + i + '">' +
-              esc(prossimaTappa(x.stato)) + ' →</button>' : '') +
-            '<button class="bottone bottone--piccolo bottone--nudo" data-azione="annulla" data-i="' + i + '">' +
-            'Annulla</button>' +
-            '<span class="piccolo tenue spinta">Nella demo avanzi tu il percorso al posto del fornitore.</span>' +
-          '</div>') +
-        '</div>' +
-      '</article>';
-    }).join('') + '</div>';
+  function fatto(k, v) {
+    return '<div><div class="piccolo fioco">' + esc(k) + '</div>' +
+      '<div class="grassetto piccolo num">' + esc(v) + '</div></div>';
   }
-
-  function campo(k, v) {
-    return '<div><div class="etichetta">' + FERMO.esc(k) + '</div>' +
-      '<div class="numerico" style="font-size:13px">' + FERMO.esc(v) + '</div></div>';
-  }
-  function esc(s) { return FERMO.esc(s); }
 
   /* ------------------------------------------------------- avanzamento --- */
   function avanzabile(stato) {
@@ -129,15 +53,19 @@
   }
 
   /* ------------------------------------------------------ conversazione --- */
+  /* La pagina si ridisegna a ogni azione: senza memoria, un filo aperto a mano
+     si richiuderebbe proprio mentre ci stai scrivendo dentro. */
+  var apertaFilo = {};
+
   function conversazione(x, i) {
     var fili = FERMO.store.tutto().messaggi || {};
     var voci = fili[x.codice] || [];
-    return '<details class="filo-guscio" style="margin-top:16px" ' +
-      (x.stato === 'in-attesa' || voci.length > 2 ? 'open' : '') + '>' +
-      '<summary style="cursor:pointer;font-size:11px;letter-spacing:.13em;text-transform:uppercase;font-weight:700">' +
-        'Conversazione col fornitore' +
-        (voci.length ? ' <span class="tenue">(' + voci.length + ')</span>' : ' <span class="tenue">(nessun messaggio)</span>') +
-      '</summary>' +
+    var aperta = apertaFilo[x.codice] !== undefined
+      ? apertaFilo[x.codice]
+      : (x.stato === 'in-attesa' || voci.length > 2);
+    return '<details class="apribile" data-filo="' + esc(x.codice) + '"' + (aperta ? ' open' : '') + '>' +
+      '<summary>Conversazione col fornitore' +
+        (voci.length ? ' (' + voci.length + ')' : ' — nessun messaggio') + '</summary>' +
       '<div class="filo" style="margin-top:14px">' +
         (voci.length ? voci.map(function (m) {
           return '<div class="messaggio" data-da="' + m.da + '">' +
@@ -147,17 +75,99 @@
             '</div>' +
             '<div class="messaggio__corpo">' + esc(m.testo) + '</div>' +
           '</div>';
-        }).join('') : '<p class="tenue piccolo">Nessun messaggio su questa richiesta.</p>') +
+        }).join('') : '<p class="piccolo fioco">Nessun messaggio su questa richiesta.</p>') +
       '</div>' +
       (x.stato === 'annullata' ? '' :
-      '<form class="riga" data-invia="' + i + '" style="margin-top:14px;flex-wrap:nowrap;gap:8px">' +
-        '<label class="solo-lettori" for="msg-' + i + '">Scrivi al fornitore</label>' +
+      '<form class="riga riga--stretta" data-invia="' + i + '" style="margin-top:14px;gap:8px">' +
+        '<label class="sr" for="msg-' + i + '">Scrivi al fornitore</label>' +
         '<input type="text" id="msg-' + i + '" placeholder="Scrivi al fornitore…" ' +
           'autocomplete="off" style="flex:1">' +
-        '<button class="bottone bottone--piccolo" type="submit">Invia</button>' +
+        '<button class="btn btn--piccolo" type="submit">Invia</button>' +
       '</form>') +
     '</details>';
   }
+
+  /* --------------------------------------------------------- richieste --- */
+  function disegnaPrenotazioni() {
+    var p = FERMO.store.tutto().prenotazioni;
+    var box = g('lista-prenotazioni');
+
+    if (!p.length) {
+      g('riepilogo').textContent = 'Nessuna richiesta';
+      box.innerHTML =
+        '<div class="vuoto">' +
+          '<h3>Non hai ancora prenotato niente</h3>' +
+          '<p class="piccolo">Apri una scheda, scegli il giorno e la quantità: ' +
+            'la richiesta compare qui.</p>' +
+          '<a class="btn btn--primario" href="catalogo.html" style="margin-top:14px">Vai al catalogo</a>' +
+        '</div>';
+      return;
+    }
+
+    var attive = p.filter(function (x) { return x.stato !== 'annullata'; });
+    var somma = attive.reduce(function (t, x) { return t + x.totale; }, 0);
+    g('riepilogo').textContent = attive.length + ' attive · ' + FERMO.fmt.euroTondo(somma) + ' impegnati';
+
+    box.innerHTML = p.map(function (x, i) {
+      var st = STATI[x.stato] || STATI['in-attesa'];
+      var quando = x.inizio
+        ? FERMO.fmt.data(new Date(x.inizio)) +
+          (x.fine && x.fine !== x.inizio ? ' → ' + FERMO.fmt.data(new Date(x.fine)) : '')
+        : 'da concordare';
+
+      return '<article class="carta">' +
+        '<div class="carta__testa">' +
+          '<span class="codice">' + esc(x.codice) + '</span>' +
+          '<span class="spinta pillola ' + st.pillola + '">' + st.testo + '</span>' +
+        '</div>' +
+        '<div class="carta__corpo">' +
+
+          '<div class="riga riga--fra" style="align-items:flex-start;gap:14px">' +
+            '<div style="min-width:0">' +
+              '<a href="asset.html?id=' + encodeURIComponent(x.assetId) + '" class="grassetto tocco">' +
+                esc(x.titolo) + '</a>' +
+              '<div class="piccolo tenue" style="margin-top:4px">' +
+                esc(x.fornitore) + ' · ' + esc(x.citta) + '</div>' +
+            '</div>' +
+            '<div style="text-align:right;flex:none">' +
+              '<div class="grassetto num" style="font-size:18px">' + FERMO.fmt.euro(x.totale) + '</div>' +
+              '<div class="piccolo fioco">IVA inclusa</div>' +
+            '</div>' +
+          '</div>' +
+
+          '<div class="griglia griglia--2" style="margin-top:16px;gap:12px">' +
+            fatto('Quando', quando) +
+            fatto('Quantità', x.tipo === 'offerta' ? FERMO.fmt.euroTondo(x.quantita) :
+              FERMO.fmt.conta(x.quantita, x.unita)) +
+            fatto('Modalità', FERMO.D.modalita(x.modalita).nome) +
+            fatto('Richiesta il', FERMO.fmt.data(new Date(x.creata))) +
+          '</div>' +
+
+          '<div style="margin-top:20px">' + FERMO.linea(x.stato) + '</div>' +
+          '<p class="campo__aiuto">' + st.nota + '</p>' +
+
+          conversazione(x, i) +
+
+          (x.stato === 'annullata' ? '' :
+          '<div class="riga" style="margin-top:14px;gap:8px">' +
+            (avanzabile(x.stato) ?
+              '<button class="btn btn--piccolo btn--primario" data-azione="avanza" data-i="' + i + '">' +
+              esc(prossimaTappa(x.stato)) + '</button>' : '') +
+            '<button class="btn btn--piccolo" data-azione="annulla" data-i="' + i + '">Annulla</button>' +
+            '<span class="piccolo fioco spinta">Nella demo il percorso lo avanzi tu.</span>' +
+          '</div>') +
+        '</div>' +
+      '</article>';
+    }).join('');
+  }
+
+  /* l'evento «toggle» non risale: si ascolta in cattura */
+  document.addEventListener('toggle', function (e) {
+    var d = e.target;
+    if (d.tagName === 'DETAILS' && d.hasAttribute('data-filo')) {
+      apertaFilo[d.getAttribute('data-filo')] = d.open;
+    }
+  }, true);
 
   document.addEventListener('click', function (e) {
     var b = e.target.closest('[data-azione="annulla"], [data-azione="avanza"]');
@@ -174,11 +184,11 @@
       nuovo = p.stato;
     });
     var messaggi = {
-      'confermata': ['Richiesta confermata', 'Importo vincolato fino alla consegna.'],
+      'confermata':  ['Richiesta confermata', 'Importo vincolato fino alla consegna.'],
       'lavorazione': ['Lavoro in corso', 'Il fornitore ha preso in carico la commessa.'],
-      'consegnata': ['Consegnata', 'Hai cinque giorni lavorativi per contestare.'],
-      'pagata': ['Saldata', 'Pratica chiusa: l\'importo è stato liberato al fornitore.'],
-      'annullata': ['Richiesta annullata', 'Nessun addebito, la capacità torna disponibile.']
+      'consegnata':  ['Consegnata', 'Hai cinque giorni lavorativi per contestare.'],
+      'pagata':      ['Saldata', 'Pratica chiusa: l\'importo è stato liberato al fornitore.'],
+      'annullata':   ['Richiesta annullata', 'Nessun addebito, la capacità torna disponibile.']
     };
     var m = messaggi[nuovo] || ['Aggiornata', 'Stato della richiesta aggiornato.'];
     FERMO.brindisi(m[0], m[1]);
@@ -206,7 +216,11 @@
       s.messaggi[codice].push({ da: 'cliente', testo: testo, quando: new Date().toISOString() });
     });
     campo.value = '';
+    apertaFilo[codice] = true;
     disegnaPrenotazioni();
+    /* si continua a scrivere da dove si era: il ridisegno non ruba il cursore */
+    var dinuovo = g('msg-' + i);
+    if (dinuovo) dinuovo.focus();
 
     setTimeout(function () {
       var r = RISPOSTE[Math.floor(Math.random() * RISPOSTE.length)];
@@ -226,8 +240,8 @@
     g('conteggio-preferiti').textContent = beni.length + (beni.length === 1 ? ' bene' : ' beni');
     g('lista-preferiti').innerHTML = beni.map(FERMO.scheda).join('');
     g('preferiti-vuoti').innerHTML = beni.length ? '' :
-      '<div class="vuoto"><p><strong>Nessun bene salvato.</strong></p>' +
-      '<p class="piccolo">Il pulsante ★ su ogni scheda tiene da parte quello che ti serve.</p></div>';
+      '<div class="vuoto"><h3>Nessun bene salvato</h3>' +
+      '<p class="piccolo">Il cuore su ogni scheda tiene da parte quello che ti serve.</p></div>';
   }
 
   document.addEventListener('fermo:preferiti', disegnaPreferiti);

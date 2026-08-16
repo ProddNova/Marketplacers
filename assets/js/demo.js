@@ -113,81 +113,70 @@
   }
 
   /* ---------------------------------------------------------------- guida */
+  /* Quattro tappe, una per lato del mercato. Si apre da sola al primo accesso
+     e poi resta sotto il menu «altre opzioni»: nessun pulsante fisso addosso
+     al contenuto. */
   var TAPPE = [
     {
       titolo: 'Cerca capacità ferma',
-      testo: 'Il catalogo si filtra per categoria, modalità, città e disponibilità. ' +
-             'Il quadro delle sedi mostra dov\'è il ferro.',
+      testo: 'Trenta macchine reali per categoria, città e disponibilità. I filtri stanno in un pannello, non addosso all\'elenco.',
       dove: 'catalogo.html', invito: 'Apri il catalogo'
     },
     {
-      titolo: 'Configura un preventivo',
-      testo: 'Sulla scheda scegli il giorno di inizio nel calendario e la quantità: ' +
-             'commissione, copertura e IVA si ricalcolano mentre scegli.',
+      titolo: 'Chiedi un preventivo',
+      testo: 'Scegli il giorno nel calendario e la quantità: commissione, copertura e IVA si ricalcolano mentre scegli.',
       dove: 'asset.html?id=FRM-CNC-0142', invito: 'Guarda una scheda'
     },
     {
       titolo: 'Segui la richiesta',
-      testo: 'Ogni richiesta ha un avanzamento e una conversazione col fornitore. ' +
-             'Ne trovi tre già in corso.',
+      testo: 'Ogni richiesta ha un avanzamento in cinque tappe e una conversazione col fornitore. Ne trovi tre già in corso.',
       dove: 'prenotazioni.html', invito: 'Vedi le richieste'
     },
     {
       titolo: 'Passa dall\'altro lato',
-      testo: 'Come fornitore vedi transato, occupazione per macchina e le richieste ' +
-             'da accettare o rifiutare. Oppure pubblichi una macchina tua.',
+      testo: 'Da fornitore vedi transato, occupazione per macchina e le richieste da accettare. Oppure pubblichi una macchina tua.',
       dove: 'console.html', invito: 'Entra nella console'
     }
   ];
 
-  function montaGuida() {
-    var s = leggi();
-
-    var d = document.createElement('dialog');
-    d.className = 'guida';
-    d.innerHTML =
-      '<form method="dialog" class="guida__x">' +
-        '<button class="bottone bottone--piccolo bottone--nudo" aria-label="Chiudi la guida">Chiudi ×</button>' +
-      '</form>' +
-      '<div class="guida__corpo">' +
-        '<div class="occhiello">Visita guidata · 4 tappe</div>' +
-        '<h2 style="margin-bottom:10px">Che cosa puoi provare</h2>' +
-        '<p class="tenue piccolo" style="margin-bottom:18px">' +
-          'Questa è una dimostrazione: i fornitori e i prezzi sono inventati, non ci sono ' +
-          'pagamenti né account. Quello che fai resta nel tuo browser e si azzera dal fondo pagina.' +
-        '</p>' +
-        '<ol class="guida__elenco">' +
-          TAPPE.map(function (t, i) {
-            return '<li>' +
-              '<span class="guida__n">' + (i + 1) + '</span>' +
-              '<div><strong>' + t.titolo + '</strong>' +
-                '<p class="piccolo tenue" style="margin:3px 0 8px">' + t.testo + '</p>' +
-                '<a class="bottone bottone--piccolo" href="' + t.dove + '">' + t.invito + ' →</a>' +
-              '</div></li>';
-          }).join('') +
-        '</ol>' +
+  function apriGuida() {
+    var F = global.FERMO;
+    var corpo =
+      '<p class="tenue" style="margin-bottom:18px">' +
+        'Prototipo dimostrativo del marketplace della capacità inutilizzata. ' +
+        'Fornitori, prezzi e disponibilità sono inventati; non ci sono pagamenti né account.' +
+      '</p>' +
+      '<div class="pila pila--larga">' +
+        TAPPE.map(function (t, i) {
+          return '<div class="riga riga--stretta" style="align-items:flex-start;gap:12px">' +
+            '<span class="pillola pillola--piena" style="margin-top:2px">' + (i + 1) + '</span>' +
+            '<div>' +
+              '<strong>' + t.titolo + '</strong>' +
+              '<p class="piccolo tenue" style="margin:2px 0 8px">' + t.testo + '</p>' +
+              '<a class="btn btn--piccolo" href="' + t.dove + '">' + t.invito + '</a>' +
+            '</div>' +
+          '</div>';
+        }).join('') +
       '</div>';
-    document.body.appendChild(d);
 
-    /* pulsante di richiamo, sempre disponibile */
-    var b = document.createElement('button');
-    b.className = 'richiamo';
-    b.type = 'button';
-    b.innerHTML = '<span aria-hidden="true">?</span><span class="richiamo__testo">Guida</span>';
-    b.setAttribute('aria-label', 'Apri la visita guidata della demo');
-    b.addEventListener('click', function () { apri(d); });
-    document.body.appendChild(b);
-
-    if (!s.tour) {
-      apri(d);
-      var st = leggi(); st.tour = true; scrivi(st);
-    }
+    var d = F.pannello({ titolo: 'Che cosa puoi provare', corpo: corpo });
+    F.apri(d);
+    return d;
   }
 
-  function apri(d) {
-    if (typeof d.showModal === 'function') d.showModal();
-    else d.setAttribute('open', '');
+  /* Al primo accesso la guida si apre da sola, una volta sola. */
+  function primoAccesso() {
+    var s = leggi();
+    if (s.tour) return;
+    s.tour = true;
+    scrivi(s);
+    apriGuida();
   }
 
-  global.FERMO_DEMO = { semina: semina, montaGuida: montaGuida, TAPPE: TAPPE };
+  global.FERMO_DEMO = {
+    semina: semina,
+    apriGuida: apriGuida,
+    primoAccesso: primoAccesso,
+    TAPPE: TAPPE
+  };
 })(window);

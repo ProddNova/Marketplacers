@@ -1,5 +1,9 @@
 /* =============================================================================
-   FERMO — catalogo: ricerca, filtri, ordinamento, sincronia con la barra URL
+   FERMO — catalogo
+   Sul telefono comandano tre cose sole: la ricerca, le categorie e un pannello
+   di filtri che si apre quando serve. Tutto il resto sta dentro il pannello,
+   così l'elenco dei risultati parte subito invece che dopo due schermate.
+   Lo stato resta nella barra dell'indirizzo: una ricerca si può condividere.
    ========================================================================== */
 (function () {
   'use strict';
@@ -7,6 +11,7 @@
 
   var D = FERMO.D;
   var TUTTI = FERMO.catalogo();
+  var g = function (id) { return document.getElementById(id); };
 
   var stato = {
     q: '', cat: [], mod: [], unita: '', prezzo: null,
@@ -14,43 +19,43 @@
   };
 
   var el = {
-    q: document.getElementById('q'),
-    ordina: document.getElementById('ordina'),
-    categoria: document.getElementById('filtro-categoria'),
-    modalita: document.getElementById('filtro-modalita'),
-    unita: document.getElementById('filtro-unita'),
-    prezzo: document.getElementById('filtro-prezzo'),
-    prezzoValore: document.getElementById('prezzo-valore'),
-    prezzoNota: document.getElementById('prezzo-nota'),
-    citta: document.getElementById('filtro-citta'),
-    preavviso: document.getElementById('filtro-preavviso'),
-    verificato: document.getElementById('filtro-verificato'),
-    preferiti: document.getElementById('filtro-preferiti'),
-    risultati: document.getElementById('risultati'),
-    niente: document.getElementById('niente'),
-    gettoni: document.getElementById('gettoni'),
-    conteggio: document.getElementById('stato-conteggio')
+    q: g('q'),
+    ordina: g('ordina'),
+    risultati: g('risultati'),
+    niente: g('niente'),
+    gettoni: g('gettoni'),
+    conteggio: g('stato-conteggio'),
+    pulisci: g('pulisci'),
+    contaFiltri: g('conta-filtri'),
+    chipCat: g('chip-categorie')
   };
 
-  /* ------------------------------------------------ costruzione dei filtri */
-  el.categoria.innerHTML = D.CATEGORIE.map(function (c) {
+  /* icone dei comandi */
+  g('icona-lente').innerHTML = FERMO.icona('lente');
+  g('icona-filtro').innerHTML = FERMO.icona('filtro');
+  g('icona-mappa').innerHTML = FERMO.icona('mappa');
+
+  /* ------------------------------------------------- chip delle categorie */
+  el.chipCat.innerHTML = D.CATEGORIE.map(function (c) {
     var n = TUTTI.filter(function (a) { return a.cat === c.id; }).length;
-    return '<label class="riga" style="gap:9px;flex-wrap:nowrap;cursor:pointer;font-size:12.5px">' +
-      '<input type="checkbox" value="' + c.id + '" data-filtro="cat" style="width:auto">' +
-      '<span style="flex:1">' + FERMO.esc(c.breve) + '</span>' +
-      '<span class="tenue numerico">' + n + '</span></label>';
+    return '<button class="chip" type="button" data-cat="' + c.id + '" aria-pressed="false">' +
+      FERMO.esc(c.breve) + '<span class="chip__n">' + n + '</span></button>';
   }).join('');
 
-  el.modalita.innerHTML = D.MODALITA.map(function (m) {
-    return '<label class="scelta"><input type="checkbox" value="' + m.id + '" data-filtro="mod">' +
-      '<span>' + FERMO.esc(m.nome) + '</span></label>';
-  }).join('');
+  el.chipCat.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-cat]');
+    if (!b) return;
+    var id = b.getAttribute('data-cat');
+    var i = stato.cat.indexOf(id);
+    if (i === -1) stato.cat.push(id); else stato.cat.splice(i, 1);
+    disegna();
+  });
 
-  var citta = {};
-  TUTTI.forEach(function (a) { citta[a.citta] = (citta[a.citta] || 0) + 1; });
-  el.citta.innerHTML += Object.keys(citta).sort().map(function (c) {
-    return '<option value="' + FERMO.esc(c) + '">' + FERMO.esc(c) + ' (' + citta[c] + ')</option>';
-  }).join('');
+  function sincronizzaChip() {
+    Array.prototype.forEach.call(el.chipCat.querySelectorAll('[data-cat]'), function (b) {
+      b.setAttribute('aria-pressed', stato.cat.indexOf(b.getAttribute('data-cat')) !== -1 ? 'true' : 'false');
+    });
+  }
 
   /* ------------------------------------------------------ lettura dall'URL */
   function daURL() {
@@ -66,20 +71,8 @@
     stato.ordina = p.get('ordina') || 'rilevanza';
     var pr = p.get('prezzo');
     stato.prezzo = pr ? parseFloat(pr) : null;
-
     el.q.value = stato.q;
     el.ordina.value = stato.ordina;
-    el.unita.value = stato.unita;
-    el.citta.value = stato.citta;
-    el.preavviso.value = stato.preavviso;
-    el.verificato.checked = stato.verificato;
-    el.preferiti.checked = stato.preferiti;
-    Array.prototype.forEach.call(document.querySelectorAll('[data-filtro="cat"]'), function (i) {
-      i.checked = stato.cat.indexOf(i.value) !== -1;
-    });
-    Array.prototype.forEach.call(document.querySelectorAll('[data-filtro="mod"]'), function (i) {
-      i.checked = stato.mod.indexOf(i.value) !== -1;
-    });
   }
 
   function inURL() {
@@ -98,35 +91,7 @@
     history.replaceState(null, '', s ? '?' + s : location.pathname);
   }
 
-  /* --------------------------------------------- cursore del prezzo (unità) */
-  /* Ha senso confrontare i prezzi solo a parità di unità: finché non se ne
-     sceglie una il cursore resta spento, con la spiegazione accanto.          */
-  function aggiornaCursorePrezzo(resetta) {
-    var u = stato.unita;
-    if (!u) {
-      el.prezzo.disabled = true;
-      el.prezzo.value = el.prezzo.max;
-      el.prezzoValore.textContent = '';
-      el.prezzoNota.textContent = 'Scegli un\'unità: i prezzi diventano confrontabili.';
-      stato.prezzo = null;
-      return;
-    }
-    var valori = TUTTI.filter(function (a) { return a.prezzo.unita === u; })
-                      .map(function (a) { return a.prezzo.valore; });
-    if (!valori.length) { el.prezzo.disabled = true; el.prezzoNota.textContent = 'Nessuna scheda con questa unità.'; return; }
-    var max = Math.max.apply(null, valori);
-    var min = Math.min.apply(null, valori);
-    el.prezzo.disabled = false;
-    el.prezzo.min = 0;
-    el.prezzo.max = max;
-    el.prezzo.step = max > 1000 ? 100 : max > 100 ? 5 : max > 10 ? 1 : 0.05;
-    if (resetta || stato.prezzo == null || stato.prezzo > max) stato.prezzo = max;
-    el.prezzo.value = stato.prezzo;
-    el.prezzoValore.textContent = FERMO.fmt.euro(stato.prezzo) + FERMO.fmt.unita(u).suffisso;
-    el.prezzoNota.textContent = 'Da ' + FERMO.fmt.euro(min) + ' a ' + FERMO.fmt.euro(max) + ' su questa unità.';
-  }
-
-  /* --------------------------------------------------------------- filtro */
+  /* ---------------------------------------------------------- filtraggio */
   function testo(a) {
     return [a.titolo, a.fornitore, a.citta, a.prov, a.regione, a.sintesi,
             D.categoria(a.cat).nome, a.id,
@@ -174,8 +139,8 @@
     }
   }
 
-  /* -------------------------------------------------------- filtri attivi */
-  function gettoni() {
+  /* --------------------------------------------------------- filtri attivi */
+  function attivi() {
     var voci = [];
     if (stato.q) voci.push({ k: 'q', t: '“' + stato.q + '”' });
     stato.cat.forEach(function (c) { voci.push({ k: 'cat:' + c, t: D.categoria(c).breve }); });
@@ -185,163 +150,291 @@
     if (stato.preavviso) voci.push({ k: 'pronta', t: 'entro ' + stato.preavviso + ' gg' });
     if (stato.verificato) voci.push({ k: 'verificato', t: 'verificati' });
     if (stato.preferiti) voci.push({ k: 'preferiti', t: 'preferiti' });
-
-    el.gettoni.innerHTML = voci.length
-      ? voci.map(function (v) {
-          return '<span class="gettone">' + FERMO.esc(v.t) +
-            '<button type="button" data-togli="' + FERMO.esc(v.k) + '" aria-label="Togli filtro ' +
-            FERMO.esc(v.t) + '">×</button></span>';
-        }).join('')
-      : '';
+    return voci;
   }
 
-  /* ---------------------------------------------------------- quadro sedi */
-  var pannelloQuadro = document.getElementById('pannello-quadro');
-  var innestoQuadro = document.getElementById('quadro-innesto');
-  var tabellaQuadro = document.getElementById('quadro-tabella').querySelector('tbody');
-  var lettoQuadro = document.getElementById('quadro-letto');
+  function togli(k) {
+    if (k === 'q') { stato.q = ''; el.q.value = ''; }
+    else if (k.indexOf('cat:') === 0) stato.cat = stato.cat.filter(function (x) { return x !== k.slice(4); });
+    else if (k.indexOf('mod:') === 0) stato.mod = stato.mod.filter(function (x) { return x !== k.slice(4); });
+    else if (k === 'unita') { stato.unita = ''; stato.prezzo = null; }
+    else if (k === 'citta') stato.citta = '';
+    else if (k === 'pronta') stato.preavviso = '';
+    else if (k === 'verificato') stato.verificato = false;
+    else if (k === 'preferiti') stato.preferiti = false;
+  }
+
+  el.gettoni.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-togli]');
+    if (!b) return;
+    togli(b.getAttribute('data-togli'));
+    disegna();
+  });
+
+  function pulisci() {
+    stato.q = ''; stato.cat = []; stato.mod = []; stato.unita = ''; stato.prezzo = null;
+    stato.citta = ''; stato.preavviso = ''; stato.verificato = false; stato.preferiti = false;
+    el.q.value = '';
+    disegna();
+  }
+  el.pulisci.addEventListener('click', pulisci);
+
+  /* ==================================================== PANNELLO DEI FILTRI */
+  /* Sul telefono i filtri non possono stare sempre a schermo: rubano lo spazio
+     ai risultati. Stanno qui dentro, si applicano dal vivo e il piede dice
+     sempre quante schede restano. */
+  var citta = {};
+  TUTTI.forEach(function (a) { citta[a.citta] = (citta[a.citta] || 0) + 1; });
+
+  function estremiPrezzo(u) {
+    var v = TUTTI.filter(function (a) { return a.prezzo.unita === u; })
+                 .map(function (a) { return a.prezzo.valore; });
+    if (!v.length) return null;
+    return { min: Math.min.apply(null, v), max: Math.max.apply(null, v) };
+  }
+
+  var UNITA_ELENCO = [
+    ['ora', 'a ora'], ['giorno', 'a giorno'], ['settimana', 'a settimana'], ['mese', 'a mese'],
+    ['pezzo', 'a pezzo'], ['m3mese', 'a metro cubo / mese'], ['palletmese', 'a pallet / mese'],
+    ['km', 'a chilometro'], ['corpo', 'in blocco (vendita)']
+  ];
+
+  function corpoFiltri() {
+    var e = stato.unita ? estremiPrezzo(stato.unita) : null;
+    var passo = e ? (e.max > 1000 ? 100 : e.max > 100 ? 5 : e.max > 10 ? 1 : 0.05) : 1;
+    var valore = stato.prezzo != null && e ? Math.min(stato.prezzo, e.max) : (e ? e.max : 0);
+
+    return '' +
+      '<div class="campo">' +
+        '<span class="campo__nome">Come la vuoi</span>' +
+        '<div class="riga" style="gap:8px">' + D.MODALITA.map(function (m) {
+          return '<button class="chip" type="button" data-mod="' + m.id + '" aria-pressed="' +
+            (stato.mod.indexOf(m.id) !== -1 ? 'true' : 'false') + '">' + FERMO.esc(m.nome) + '</button>';
+        }).join('') + '</div>' +
+      '</div>' +
+
+      '<label class="campo">' +
+        '<span class="campo__nome">Unità di prezzo</span>' +
+        '<select id="f-unita">' +
+          '<option value="">Tutte le unità</option>' +
+          UNITA_ELENCO.map(function (u) {
+            return '<option value="' + u[0] + '"' + (stato.unita === u[0] ? ' selected' : '') + '>' +
+              FERMO.esc(u[1]) + '</option>';
+          }).join('') +
+        '</select>' +
+        '<span class="campo__aiuto">I prezzi si confrontano solo a parità di unità.</span>' +
+      '</label>' +
+
+      '<div class="campo">' +
+        '<span class="campo__nome">Prezzo massimo ' +
+          '<span class="num accento" id="f-prezzo-valore">' +
+            (e ? FERMO.fmt.euro(valore) + FERMO.fmt.unita(stato.unita).suffisso : '') + '</span></span>' +
+        '<input type="range" id="f-prezzo" ' +
+          'min="' + (e ? 0 : 0) + '" max="' + (e ? e.max : 100) + '" step="' + passo + '" ' +
+          'value="' + valore + '"' + (e ? '' : ' disabled') + '>' +
+        '<span class="campo__aiuto">' + (e
+          ? 'Da ' + FERMO.fmt.euro(e.min) + ' a ' + FERMO.fmt.euro(e.max) + ' su questa unità.'
+          : 'Scegli prima un\'unità di prezzo.') + '</span>' +
+      '</div>' +
+
+      '<label class="campo">' +
+        '<span class="campo__nome">Dove</span>' +
+        '<select id="f-citta"><option value="">Tutta Italia</option>' +
+          Object.keys(citta).sort().map(function (c) {
+            return '<option value="' + FERMO.esc(c) + '"' + (stato.citta === c ? ' selected' : '') + '>' +
+              FERMO.esc(c) + ' (' + citta[c] + ')</option>';
+          }).join('') +
+        '</select>' +
+      '</label>' +
+
+      '<label class="campo">' +
+        '<span class="campo__nome">Pronta entro</span>' +
+        '<select id="f-preavviso">' +
+          ['', '2', '5', '10'].map(function (v) {
+            var nome = v ? v + ' giorni' : 'Qualsiasi preavviso';
+            return '<option value="' + v + '"' + (stato.preavviso === v ? ' selected' : '') + '>' + nome + '</option>';
+          }).join('') +
+        '</select>' +
+      '</label>' +
+
+      '<div class="campo">' +
+        '<label class="spunta"><input type="checkbox" id="f-verificato"' +
+          (stato.verificato ? ' checked' : '') + '> Solo fornitori verificati</label>' +
+        '<label class="spunta"><input type="checkbox" id="f-preferiti"' +
+          (stato.preferiti ? ' checked' : '') + '> Solo quelli che ho salvato</label>' +
+      '</div>';
+  }
+
+  function apriFiltri() {
+    var d = FERMO.pannello({
+      titolo: 'Filtri',
+      corpo: corpoFiltri(),
+      piede: '<button class="btn" type="button" data-f="azzera">Azzera</button>' +
+             '<button class="btn btn--primario" type="button" data-chiudi id="f-conferma">Vedi risultati</button>'
+    });
+
+    function leggi() {
+      var u = d.querySelector('#f-unita').value;
+      var cambiataUnita = u !== stato.unita;
+      stato.unita = u;
+      stato.citta = d.querySelector('#f-citta').value;
+      stato.preavviso = d.querySelector('#f-preavviso').value;
+      stato.verificato = d.querySelector('#f-verificato').checked;
+      stato.preferiti = d.querySelector('#f-preferiti').checked;
+      var pr = d.querySelector('#f-prezzo');
+      if (cambiataUnita) {
+        /* cambiando unità il cursore riparte dal massimo di quella nuova */
+        var e = u ? estremiPrezzo(u) : null;
+        stato.prezzo = e ? e.max : null;
+        rifai(d);
+        return;
+      }
+      stato.prezzo = pr.disabled ? null : parseFloat(pr.value);
+      var et = d.querySelector('#f-prezzo-valore');
+      if (et && stato.prezzo != null) {
+        et.textContent = FERMO.fmt.euro(stato.prezzo) + FERMO.fmt.unita(stato.unita).suffisso;
+      }
+      disegna();
+      aggiornaPiede(d);
+    }
+
+    function rifai(dd) {
+      dd.querySelector('.pannello__corpo').innerHTML = corpoFiltri();
+      disegna();
+      aggiornaPiede(dd);
+    }
+
+    d.addEventListener('input', leggi);
+    d.addEventListener('change', leggi);
+    d.addEventListener('click', function (e) {
+      var m = e.target.closest('[data-mod]');
+      if (m) {
+        var id = m.getAttribute('data-mod');
+        var i = stato.mod.indexOf(id);
+        if (i === -1) stato.mod.push(id); else stato.mod.splice(i, 1);
+        m.setAttribute('aria-pressed', i === -1 ? 'true' : 'false');
+        disegna();
+        aggiornaPiede(d);
+        return;
+      }
+      if (e.target.closest('[data-f="azzera"]')) {
+        pulisci();
+        rifai(d);
+      }
+    });
+
+    aggiornaPiede(d);
+    FERMO.apri(d);
+  }
+
+  function aggiornaPiede(d) {
+    var b = d.querySelector('#f-conferma');
+    if (!b) return;
+    var n = filtra().length;
+    b.textContent = n ? 'Vedi ' + n + (n === 1 ? ' scheda' : ' schede') : 'Nessun risultato';
+  }
+
+  g('apri-filtri').addEventListener('click', apriFiltri);
+
+  /* ------------------------------------------------------- mappa delle sedi */
+  var pannelloQuadro = g('pannello-quadro');
+  var innestoQuadro = g('quadro-innesto');
+  var tabellaQuadro = g('quadro-tabella').querySelector('tbody');
+  var lettoQuadro = g('quadro-letto');
+  var mappaAperta = false;
+
+  g('commuta-mappa').addEventListener('click', function () {
+    mappaAperta = !mappaAperta;
+    this.setAttribute('aria-pressed', String(mappaAperta));
+    pannelloQuadro.classList.toggle('nascosto', !mappaAperta);
+    if (mappaAperta) disegnaQuadro(stato.citta ? TUTTI : ordina(filtra()));
+  });
 
   function disegnaQuadro(lista) {
-    if (pannelloQuadro.hidden) return;
+    if (!mappaAperta) return;
     innestoQuadro.innerHTML = FERMO.quadro(lista, {
-      descrizione: 'Quadro delle sedi con capacità a catalogo, per città'
+      descrizione: 'Sedi con capacità a catalogo, per città'
     });
-    /* la sede già filtrata resta marcata */
     if (stato.citta) {
-      var g = innestoQuadro.querySelector('[data-citta="' + CSS.escape(stato.citta) + '"]');
-      if (g) g.setAttribute('data-scelta', 'si');
+      var g2 = innestoQuadro.querySelector('[data-citta="' + CSS.escape(stato.citta) + '"]');
+      if (g2) g2.setAttribute('data-scelta', 'si');
     }
     var sedi = {};
     lista.forEach(function (b) { sedi[b.citta] = (sedi[b.citta] || 0) + 1; });
     tabellaQuadro.innerHTML = Object.keys(sedi)
       .sort(function (a, b) { return sedi[b] - sedi[a] || a.localeCompare(b); })
       .map(function (c) {
-        return '<tr><td><button class="collegamento" type="button" data-citta="' + FERMO.esc(c) + '">' +
-          FERMO.esc(c) + '</button></td><td class="num numerico">' + sedi[c] + '</td></tr>';
+        return '<tr><td><button class="link" type="button" data-citta="' + FERMO.esc(c) + '">' +
+          FERMO.esc(c) + '</button></td><td class="num">' + sedi[c] + '</td></tr>';
       }).join('');
   }
 
-  function scegliSede(citta) {
-    stato.citta = (stato.citta === citta) ? '' : citta;
-    el.citta.value = stato.citta;
+  function scegliSede(c) {
+    stato.citta = (stato.citta === c) ? '' : c;
     lettoQuadro.textContent = stato.citta
       ? 'Filtrato su ' + stato.citta + ' — tocca di nuovo per togliere'
       : 'Tocca una sede per filtrare';
     disegna();
   }
 
-  document.getElementById('pannello-quadro').addEventListener('click', function (e) {
-    var g = e.target.closest('[data-citta]');
-    if (g) scegliSede(g.getAttribute('data-citta'));
+  pannelloQuadro.addEventListener('click', function (e) {
+    var el2 = e.target.closest('[data-citta]');
+    if (el2) scegliSede(el2.getAttribute('data-citta'));
   });
-  document.getElementById('pannello-quadro').addEventListener('keydown', function (e) {
+  pannelloQuadro.addEventListener('keydown', function (e) {
     if (e.key !== 'Enter' && e.key !== ' ') return;
-    var g = e.target.closest('g[data-citta]');
-    if (!g) return;
+    var el2 = e.target.closest('g[data-citta]');
+    if (!el2) return;
     e.preventDefault();
-    scegliSede(g.getAttribute('data-citta'));
+    scegliSede(el2.getAttribute('data-citta'));
   });
 
-  Array.prototype.forEach.call(document.querySelectorAll('input[name="vista"]'), function (i) {
-    i.addEventListener('change', function () {
-      pannelloQuadro.hidden = i.value !== 'quadro';
-      if (!pannelloQuadro.hidden) disegna();
-    });
-  });
-
-  /* -------------------------------------------------------------- disegno */
+  /* ------------------------------------------------------------- disegno -- */
   function disegna() {
     var lista = ordina(filtra());
-    el.conteggio.textContent = lista.length + (lista.length === 1 ? ' scheda' : ' schede') +
-      ' su ' + TUTTI.length;
+    var voci = attivi();
+
+    el.conteggio.textContent = lista.length === TUTTI.length
+      ? TUTTI.length + ' schede a catalogo'
+      : lista.length + (lista.length === 1 ? ' scheda' : ' schede') + ' su ' + TUTTI.length;
+
+    el.pulisci.classList.toggle('nascosto', !voci.length);
+    el.contaFiltri.textContent = voci.length;
+    el.contaFiltri.classList.toggle('nascosto', !voci.length);
+
+    el.gettoni.innerHTML = voci.map(function (v) {
+      return '<span class="gettone">' + FERMO.esc(v.t) +
+        '<button type="button" data-togli="' + FERMO.esc(v.k) + '" aria-label="Togli il filtro ' +
+        FERMO.esc(v.t) + '">×</button></span>';
+    }).join('');
+
     el.risultati.innerHTML = lista.map(FERMO.scheda).join('');
-    /* il quadro mostra sempre tutte le sedi, così si vede dove si potrebbe
-       allargare la ricerca; il filtro attivo resta marcato sul punto */
-    disegnaQuadro(stato.citta ? TUTTI : lista);
     el.niente.innerHTML = lista.length ? '' :
       '<div class="vuoto">' +
-        '<div class="cifra" style="color:var(--filo)">∅</div>' +
-        '<p style="margin-top:12px"><strong>Nessuna capacità corrisponde a questi filtri.</strong></p>' +
-        '<p class="piccolo">Allarga il raggio: togli la città, o cerca in tutte le modalità.</p>' +
-        '<button class="bottone" type="button" id="vuoto-pulisci">Azzera i filtri</button>' +
+        '<h3>Nessuna capacità con questi filtri</h3>' +
+        '<p class="piccolo">Allarga il raggio: togli la città, o prova tutte le modalità.</p>' +
+        '<button class="btn" type="button" id="vuoto-pulisci" style="margin-top:14px">Azzera i filtri</button>' +
       '</div>';
-    var vp = document.getElementById('vuoto-pulisci');
+    var vp = g('vuoto-pulisci');
     if (vp) vp.addEventListener('click', pulisci);
-    gettoni();
+
+    /* la mappa mostra sempre tutte le sedi quando una è già scelta, così si
+       vede dove si potrebbe allargare la ricerca */
+    disegnaQuadro(stato.citta ? TUTTI : lista);
+    sincronizzaChip();
     inURL();
   }
 
-  /* ---------------------------------------------------------------- eventi */
-  function raccogli() {
-    stato.q = el.q.value;
-    stato.ordina = el.ordina.value;
-    stato.citta = el.citta.value;
-    stato.preavviso = el.preavviso.value;
-    stato.verificato = el.verificato.checked;
-    stato.preferiti = el.preferiti.checked;
-    stato.cat = Array.prototype.filter.call(document.querySelectorAll('[data-filtro="cat"]'), function (i) { return i.checked; })
-      .map(function (i) { return i.value; });
-    stato.mod = Array.prototype.filter.call(document.querySelectorAll('[data-filtro="mod"]'), function (i) { return i.checked; })
-      .map(function (i) { return i.value; });
-  }
-
-  document.getElementById('modulo-ricerca').addEventListener('submit', function (e) {
-    e.preventDefault(); raccogli(); disegna();
+  /* -------------------------------------------------------------- eventi -- */
+  g('modulo-ricerca').addEventListener('submit', function (e) {
+    e.preventDefault();
+    el.q.blur();
+    disegna();
   });
-
-  ['input', 'change'].forEach(function (ev) {
-    document.querySelector('.catalogo').addEventListener(ev, function (e) {
-      if (!e.target.matches('input,select')) return;
-      if (e.target === el.prezzo) {
-        stato.prezzo = parseFloat(el.prezzo.value);
-        el.prezzoValore.textContent = FERMO.fmt.euro(stato.prezzo) + FERMO.fmt.unita(stato.unita).suffisso;
-        disegna();
-        return;
-      }
-      raccogli();
-      if (e.target === el.unita) { stato.unita = el.unita.value; aggiornaCursorePrezzo(true); }
-      disegna();
-    });
-  });
-
   el.q.addEventListener('input', function () { stato.q = el.q.value; disegna(); });
   el.ordina.addEventListener('change', function () { stato.ordina = el.ordina.value; disegna(); });
-
-  el.gettoni.addEventListener('click', function (e) {
-    var b = e.target.closest('[data-togli]');
-    if (!b) return;
-    var k = b.getAttribute('data-togli');
-    if (k === 'q') { stato.q = ''; el.q.value = ''; }
-    else if (k.indexOf('cat:') === 0) {
-      stato.cat = stato.cat.filter(function (x) { return x !== k.slice(4); });
-      var i1 = document.querySelector('[data-filtro="cat"][value="' + k.slice(4) + '"]'); if (i1) i1.checked = false;
-    } else if (k.indexOf('mod:') === 0) {
-      stato.mod = stato.mod.filter(function (x) { return x !== k.slice(4); });
-      var i2 = document.querySelector('[data-filtro="mod"][value="' + k.slice(4) + '"]'); if (i2) i2.checked = false;
-    } else if (k === 'unita') { stato.unita = ''; el.unita.value = ''; aggiornaCursorePrezzo(true); }
-    else if (k === 'citta') { stato.citta = ''; el.citta.value = ''; }
-    else if (k === 'pronta') { stato.preavviso = ''; el.preavviso.value = ''; }
-    else if (k === 'verificato') { stato.verificato = false; el.verificato.checked = false; }
-    else if (k === 'preferiti') { stato.preferiti = false; el.preferiti.checked = false; }
-    disegna();
-  });
-
-  function pulisci() {
-    stato = { q: '', cat: [], mod: [], unita: '', prezzo: null, citta: '', preavviso: '',
-              verificato: false, preferiti: false, ordina: 'rilevanza' };
-    el.q.value = ''; el.ordina.value = 'rilevanza'; el.unita.value = '';
-    el.citta.value = ''; el.preavviso.value = '';
-    el.verificato.checked = false; el.preferiti.checked = false;
-    Array.prototype.forEach.call(document.querySelectorAll('[data-filtro]'), function (i) { i.checked = false; });
-    aggiornaCursorePrezzo(true);
-    disegna();
-  }
-  document.getElementById('pulisci').addEventListener('click', pulisci);
-
-  /* se cambio i preferiti mentre il filtro "solo preferiti" è attivo, ridisegno */
   document.addEventListener('fermo:preferiti', function () { if (stato.preferiti) disegna(); });
 
   daURL();
-  aggiornaCursorePrezzo(false);
   disegna();
 })();
