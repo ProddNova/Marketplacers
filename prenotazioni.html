@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prenotazioni — FERMO</title>
+<meta name="description" content="Le tue richieste di capacità e la lista dei beni salvati.">
+<link rel="stylesheet" href="assets/css/fermo.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%23C2410C'/><text x='16' y='23' font-size='20' font-family='monospace' fill='white' text-anchor='middle'>F</text></svg>">
+</head>
+<body>
+
+<main class="foglio sezione--stretta">
+
+  <div class="capo" style="margin-top:16px">
+    <span class="capo__n">[ORD]</span>
+    <h2>Le tue richieste</h2>
+    <span class="capo__nota" id="riepilogo">—</span>
+  </div>
+
+  <div id="lista-prenotazioni"></div>
+
+  <section class="sezione">
+    <div class="capo">
+      <span class="capo__n">[SAL]</span>
+      <h2>Salvati</h2>
+      <span class="capo__nota" id="conteggio-preferiti">—</span>
+    </div>
+    <div class="esiti" id="lista-preferiti"></div>
+    <div id="preferiti-vuoti"></div>
+  </section>
+
+</main>
+
+<script src="assets/js/data.js"></script>
+<script src="assets/js/core.js"></script>
+<script src="assets/js/prenotazioni.js"></script>
+</body>
+</html>
