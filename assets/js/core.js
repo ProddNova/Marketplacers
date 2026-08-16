@@ -1,6 +1,6 @@
 /* =============================================================================
    FERMO — nucleo comune
-   Stato locale, formattazione, testata/piede, glifi tecnici, grafici.
+   Stato locale, formattazione, testata, navigazione, schede, grafici.
    Nessuna dipendenza, nessun modulo: si apre anche facendo doppio clic sui file.
    ========================================================================== */
 (function (global) {
@@ -15,7 +15,7 @@
     ruolo: 'cliente',      /* cliente | fornitore */
     messaggi: {},          /* codice ordine → elenco messaggi */
     decisioni: {},         /* codice richiesta → accettata | rifiutata */
-    richiesteAperte: 0,    /* conteggio per il bollo in testata */
+    richiesteAperte: 0,    /* conteggio per il bollo in navigazione */
     seminato: false,       /* la demo si popola una volta sola */
     tour: false            /* visita guidata gia' vista */
   };
@@ -101,67 +101,96 @@
       .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
+  /* ============================================================ ICONE ====== */
+  /* Un solo tratto, 24×24, colore ereditato: cosi' stanno bene ovunque. */
+  var ICONE = {
+    casa:       '<path d="M3 10.6 12 3l9 7.6V20a1 1 0 0 1-1 1h-5v-6.5H9V21H4a1 1 0 0 1-1-1z"/>',
+    lente:      '<circle cx="11" cy="11" r="7"/><path d="m20.5 20.5-4.2-4.2"/>',
+    lista:      '<path d="M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01"/>',
+    cruscotto:  '<path d="M3 21h18M7 21v-8M12 21V4M17 21v-5"/>',
+    piu:        '<path d="M12 5v14M5 12h14"/>',
+    scambio:    '<path d="M16 3l4 4-4 4M20 7H9a4 4 0 0 0-4 4v1M8 21l-4-4 4-4M4 17h11a4 4 0 0 0 4-4v-1"/>',
+    sole:       '<circle cx="12" cy="12" r="4.2"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+    luna:       '<path d="M21 13.2A8.6 8.6 0 1 1 10.8 3a6.7 6.7 0 0 0 10.2 10.2z"/>',
+    altro:      '<circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/>',
+    info:       '<circle cx="12" cy="12" r="9"/><path d="M12 16.5v-5M12 8h.01"/>',
+    cuore:      '<path d="M20.6 5.9a5.2 5.2 0 0 0-7.4 0L12 7.1l-1.2-1.2a5.2 5.2 0 1 0-7.4 7.4l8.6 8.5 8.6-8.5a5.2 5.2 0 0 0 0-7.4z"/>',
+    filtro:     '<path d="M3 6h18M7 12h10M10 18h4"/>',
+    chiudi:     '<path d="M6 6l12 12M18 6 6 18"/>',
+    avanti:     '<path d="M5 12h13M12.5 5.5 19 12l-6.5 6.5"/>',
+    indietro:   '<path d="M19 12H6M11.5 5.5 5 12l6.5 6.5"/>',
+    spunta:     '<path d="m4.5 12.5 5 5 10-11"/>',
+    mappa:      '<path d="M9 4 3 6.5v13L9 17l6 2.5 6-2.5v-13L15 6.5zM9 4v13M15 6.5v13"/>',
+    calendario: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/>',
+    cestino:    '<path d="M4 7h16M10 4h4M6 7l1 13h10l1-13M10 11v6M14 11v6"/>',
+    fabbrica:   '<path d="M3 21h18M4 21V9l6 4V9l6 4V6h4v15"/>',
+    ordina:     '<path d="M7 4v16M7 20l-3-3M7 20l3-3M17 20V4M17 4l-3 3M17 4l3 3"/>'
+  };
+
+  function icona(nome, dim) {
+    var d = ICONE[nome] || ICONE.info;
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" ' +
+      'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"' +
+      (dim ? ' width="' + dim + '" height="' + dim + '"' : '') + '>' + d + '</svg>';
+  }
+
   /* ============================================================= GLIFI ===== */
-  /* Disegni schematici, tratto su fondo tratteggiato. Niente immagini esterne. */
-  var contaGlifi = 0;
+  /* Disegni schematici al posto delle foto: niente immagini esterne. */
   var TRATTI = {
-    cnc: '<rect x="14" y="58" width="92" height="10"/><path d="M24 58V26h72v32"/><path d="M40 26v14h40V26"/>' +
-         '<path d="M60 40v10"/><path d="M52 50h16l-8 8z"/><rect x="44" y="66" width="32" height="0.1"/>' +
-         '<path d="M30 68v6M90 68v6"/>',
-    stampante: '<rect x="20" y="14" width="80" height="54"/><path d="M20 30h80"/><path d="M60 30v10"/>' +
-         '<path d="M52 40h16v6H52z"/><path d="M60 46v6"/><rect x="40" y="52" width="40" height="8"/>' +
-         '<path d="M40 56h40"/><path d="M34 68v6M86 68v6"/>',
-    laser: '<rect x="16" y="52" width="88" height="16"/><path d="M60 14v18"/><path d="M52 32h16v8H52z"/>' +
+    cnc: '<rect x="14" y="58" width="92" height="10" rx="2"/><path d="M24 58V26h72v32"/><path d="M40 26v14h40V26"/>' +
+         '<path d="M60 40v10"/><path d="M52 50h16l-8 8z"/><path d="M30 68v6M90 68v6"/>',
+    stampante: '<rect x="20" y="14" width="80" height="54" rx="3"/><path d="M20 30h80"/><path d="M60 30v10"/>' +
+         '<path d="M52 40h16v6H52z"/><path d="M60 46v6"/><rect x="40" y="52" width="40" height="8" rx="2"/>' +
+         '<path d="M34 68v6M86 68v6"/>',
+    laser: '<rect x="16" y="52" width="88" height="16" rx="3"/><path d="M60 14v18"/><path d="M52 32h16v8H52z"/>' +
          '<path d="M60 40v12" stroke-dasharray="3 3"/><circle cx="60" cy="60" r="6"/>' +
          '<path d="M30 60h14M76 60h14"/><path d="M24 46v-8h72v8"/>',
-    officina: '<rect x="12" y="46" width="96" height="8"/><path d="M20 54v18M100 54v18"/>' +
-         '<rect x="44" y="30" width="32" height="16"/><path d="M52 30v-8h16v8"/>' +
+    officina: '<rect x="12" y="46" width="96" height="8" rx="2"/><path d="M20 54v18M100 54v18"/>' +
+         '<rect x="44" y="30" width="32" height="16" rx="2"/><path d="M52 30v-8h16v8"/>' +
          '<path d="M36 46h-8M92 46h8"/><path d="M60 22V10"/><path d="M54 14l6-6 6 6"/>',
-    lab: '<rect x="16" y="18" width="52" height="50"/><path d="M16 32h52"/><circle cx="30" cy="25" r="3"/>' +
+    lab: '<rect x="16" y="18" width="52" height="50" rx="3"/><path d="M16 32h52"/><circle cx="30" cy="25" r="3"/>' +
          '<path d="M28 44h28v18H28z"/><path d="M82 22v14l-10 26h28L90 36V22z"/><path d="M78 22h16"/>' +
          '<path d="M76 52h24"/>',
     magazzino: '<path d="M14 68V16h92v52"/><path d="M14 34h92M14 51h92"/><path d="M40 16v52M80 16v52"/>' +
-         '<rect x="18" y="38" width="18" height="11"/><rect x="44" y="21" width="32" height="11"/>' +
-         '<rect x="84" y="55" width="18" height="11"/><rect x="44" y="55" width="18" height="11"/>',
+         '<rect x="18" y="38" width="18" height="11" rx="1"/><rect x="44" y="21" width="32" height="11" rx="1"/>' +
+         '<rect x="84" y="55" width="18" height="11" rx="1"/><rect x="44" y="55" width="18" height="11" rx="1"/>',
     furgone: '<path d="M10 56V26h56v30"/><path d="M66 34h18l14 14v8H66z"/><path d="M70 38h12l8 8H70z"/>' +
          '<circle cx="32" cy="60" r="8"/><circle cx="84" cy="60" r="8"/><path d="M10 56h12M40 56h36"/>' +
          '<path d="M18 34h30"/>',
     muletto: '<path d="M28 58V32h30v26"/><path d="M58 40h12v18H58z"/><path d="M70 20v38"/><path d="M70 52h22"/>' +
          '<path d="M70 20h10"/><circle cx="38" cy="62" r="7"/><circle cx="62" cy="62" r="5"/>' +
-         '<path d="M92 52v-6"/><rect x="76" y="40" width="16" height="12"/>'
+         '<path d="M92 52v-6"/><rect x="76" y="40" width="16" height="12" rx="1"/>'
   };
 
   function glifo(nome, classe) {
-    var pid = 'tratteggio-' + (++contaGlifi);
     var tratto = TRATTI[nome] || TRATTI.officina;
     return '<svg viewBox="0 0 120 80" class="' + (classe || '') + '" role="img" aria-hidden="true" ' +
-      'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square">' +
-      '<defs><pattern id="' + pid + '" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">' +
-      '<line x1="0" y1="0" x2="0" y2="8" stroke="currentColor" stroke-width="1" opacity=".18"/></pattern></defs>' +
-      '<rect x="0" y="0" width="120" height="80" fill="url(#' + pid + ')" stroke="none"/>' +
-      tratto + '</svg>';
+      'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ' +
+      'opacity=".75">' + tratto + '</svg>';
   }
 
-  /* ========================================================== TESTATA ====== */
-  /* Il marketplace ha due lati e la navigazione lo dice: si entra come chi
-     cerca capacita' o come chi ne cede, e il menu cambia di conseguenza.     */
+  /* ==================================================== RUOLI E PAGINE ===== */
+  /* Il marketplace ha due lati: chi cerca capacita' e chi ne cede. Il menu
+     cambia di conseguenza, perche' sono due prodotti che dividono un catalogo. */
   var RUOLI = {
     cliente: {
       nome: 'Cliente',
-      nota: 'Cerchi capacità: sfogli il catalogo, configuri un preventivo, segui le tue richieste.',
+      altro: 'fornitore',
+      nota: 'Cerchi capacità: sfogli il catalogo, chiedi un preventivo, segui le tue richieste.',
       pagine: [
-        { href: 'index.html', nome: 'Manifesto' },
-        { href: 'catalogo.html', nome: 'Catalogo' },
-        { href: 'prenotazioni.html', nome: 'Le mie richieste', bollo: 'prenotazioni' }
+        { href: 'index.html',        nome: 'Home',      icona: 'casa' },
+        { href: 'catalogo.html',     nome: 'Cerca',     icona: 'lente' },
+        { href: 'prenotazioni.html', nome: 'Richieste', icona: 'lista', bollo: 'prenotazioni' }
       ]
     },
     fornitore: {
       nome: 'Fornitore',
-      nota: 'Hai capacità ferma: la pubblichi, e dalla console accetti o rifiuti le richieste che arrivano.',
+      altro: 'cliente',
+      nota: 'Hai capacità ferma: la pubblichi e decidi quali richieste accettare.',
       pagine: [
-        { href: 'index.html', nome: 'Manifesto' },
-        { href: 'console.html', nome: 'Console', bollo: 'richieste' },
-        { href: 'pubblica.html', nome: 'Pubblica' }
+        { href: 'index.html',    nome: 'Home',     icona: 'casa' },
+        { href: 'console.html',  nome: 'Console',  icona: 'cruscotto', bollo: 'richieste' },
+        { href: 'pubblica.html', nome: 'Pubblica', icona: 'piu' }
       ]
     }
   };
@@ -170,28 +199,38 @@
     'catalogo.html': 'cliente', 'prenotazioni.html': 'cliente', 'asset.html': 'cliente',
     'console.html': 'fornitore', 'pubblica.html': 'fornitore'
   };
+  /* La scheda di un bene sta sotto "Cerca": la voce resta accesa. */
+  var TAB_DI = { 'asset.html': 'catalogo.html' };
 
-  function ruoloCorrente() { return store.tutto().ruolo || 'cliente'; }
+  function ruoloCorrente() { return RUOLI[store.tutto().ruolo] ? store.tutto().ruolo : 'cliente'; }
 
-  function montaTestata(corrente) {
+  function bolli() {
     var s = store.tutto();
-    var ruolo = RUOLI[s.ruolo] ? s.ruolo : 'cliente';
+    return {
+      prenotazioni: s.prenotazioni.filter(function (x) { return x.stato !== 'annullata'; }).length,
+      richieste: s.richiesteAperte || 0
+    };
+  }
+
+  function cambiaLato(scelto) {
+    store.aggiorna(function (st) { st.ruolo = scelto; });
+    var casa = RUOLI[scelto].pagine[1];
+    location.href = casa ? casa.href : 'index.html';
+  }
+
+  /* ========================================================== TESTATA ====== */
+  function montaTestata(corrente) {
+    var ruolo = ruoloCorrente();
+    var n = bolli();
+
     var voci = RUOLI[ruolo].pagine.map(function (p) {
       var attiva = p.href === corrente ? ' aria-current="page"' : '';
-      var bollo = '';
-      if (p.bollo === 'prenotazioni') {
-        var aperte = s.prenotazioni.filter(function (x) { return x.stato !== 'annullata'; }).length;
-        if (aperte) bollo = '<span class="navi__bollo numerico">' + aperte + '</span>';
-      }
-      if (p.bollo === 'richieste') {
-        var da = s.richiesteAperte || 0;
-        if (da) bollo = '<span class="navi__bollo numerico">' + da + '</span>';
-      }
-      return '<a href="' + p.href + '"' + attiva + '>' + esc(p.nome) + bollo + '</a>';
+      var b = p.bollo && n[p.bollo] ? '<span class="bollo">' + n[p.bollo] + '</span>' : '';
+      return '<a href="' + p.href + '"' + attiva + '>' + esc(p.nome) + b + '</a>';
     }).join('');
 
-    var scambio = Object.keys(RUOLI).map(function (k) {
-      return '<button class="ruolo__voce" type="button" data-ruolo-scelto="' + k + '" ' +
+    var lati = Object.keys(RUOLI).map(function (k) {
+      return '<button class="lato__voce" type="button" data-lato="' + k + '" ' +
         'aria-pressed="' + (k === ruolo ? 'true' : 'false') + '">' + esc(RUOLI[k].nome) + '</button>';
     }).join('');
 
@@ -200,78 +239,130 @@
     el.innerHTML =
       '<div class="testata__corpo">' +
         '<a class="marchio" href="index.html">' +
-          '<span class="marchio__q" aria-hidden="true">◧</span>FERMO' +
-          '<span class="marchio__coda">CAP. INUTILIZZATA</span>' +
+          '<span class="marchio__segno" aria-hidden="true">F</span>FERMO' +
         '</a>' +
-        '<button class="apri-navi" type="button" aria-expanded="false" aria-controls="navi-principale">MENU ≡</button>' +
-        '<nav class="navi" id="navi-principale" aria-label="Principale">' + voci + '</nav>' +
-        '<div class="testata__coda">' +
-          '<div class="ruolo" role="group" aria-label="Entra come">' +
-            '<span class="ruolo__etichetta">Sei</span>' + scambio +
-          '</div>' +
-          '<button class="interruttore" type="button" data-azione="tema">' +
-            '<span class="interruttore__spia" aria-hidden="true"></span>' +
-            '<span data-ruolo="etichetta-tema">Turno giorno</span>' +
-          '</button>' +
-        '</div>' +
+        '<nav class="menu" aria-label="Principale">' + voci + '</nav>' +
+        '<div class="spinta"></div>' +
+        '<div class="lato" role="group" aria-label="Cambia lato del mercato">' + lati + '</div>' +
+        '<button class="chip solo-stretto" type="button" data-azione="scambia" ' +
+          'aria-label="Stai navigando come ' + esc(RUOLI[ruolo].nome.toLowerCase()) +
+          '. Tocca per passare al lato ' + esc(RUOLI[ruolo].altro) + '">' +
+          esc(RUOLI[ruolo].nome) + icona('scambio') +
+        '</button>' +
+        '<button class="tondo" type="button" data-azione="menu" aria-label="Altre opzioni">' +
+          icona('altro') + '</button>' +
       '</div>';
     document.body.insertBefore(el, document.body.firstChild);
 
     el.addEventListener('click', function (e) {
-      var b = e.target.closest('[data-ruolo-scelto]');
-      if (!b) return;
-      var scelto = b.getAttribute('data-ruolo-scelto');
-      store.aggiorna(function (st) { st.ruolo = scelto; });
-      var casa = RUOLI[scelto].pagine[1];
-      location.href = casa ? casa.href : 'index.html';
+      var l = e.target.closest('[data-lato]');
+      if (l) { cambiaLato(l.getAttribute('data-lato')); return; }
+      if (e.target.closest('[data-azione="scambia"]')) { cambiaLato(RUOLI[ruolo].altro); return; }
+      if (e.target.closest('[data-azione="menu"]')) apriMenu();
     });
-
-    el.querySelector('.apri-navi').addEventListener('click', function () {
-      var nav = el.querySelector('.navi');
-      var aperta = nav.classList.toggle('aperta');
-      this.setAttribute('aria-expanded', String(aperta));
-    });
-    el.querySelector('[data-azione="tema"]').addEventListener('click', function () {
-      var attuale = document.documentElement.getAttribute('data-theme');
-      var prossimo = attuale === 'dark' ? 'light' : 'dark';
-      applicaTema(prossimo);
-      store.aggiorna(function (s) { s.tema = prossimo; });
-    });
-    sincronizzaEtichettaTema();
   }
 
+  /* Barra di navigazione in basso: il pollice arriva, il menu a tendina no. */
+  function montaTab(corrente) {
+    var ruolo = ruoloCorrente();
+    var n = bolli();
+    var el = document.createElement('nav');
+    el.className = 'tab';
+    el.setAttribute('aria-label', 'Navigazione principale');
+    el.innerHTML = RUOLI[ruolo].pagine.map(function (p) {
+      var attiva = p.href === corrente ? ' aria-current="page"' : '';
+      var b = p.bollo && n[p.bollo]
+        ? '<span class="tab__bollo">' + n[p.bollo] + '</span>' : '';
+      return '<a class="tab__voce" href="' + p.href + '"' + attiva + '>' +
+        icona(p.icona) + b + '<span>' + esc(p.nome) + '</span></a>';
+    }).join('') +
+      '<button class="tab__voce tab__voce--altro" type="button" data-lato="' + RUOLI[ruolo].altro + '">' +
+        icona('scambio') + '<span>' + esc(RUOLI[RUOLI[ruolo].altro].nome) + '</span></button>';
+    document.body.appendChild(el);
+    el.addEventListener('click', function (e) {
+      var l = e.target.closest('[data-lato]');
+      if (l) cambiaLato(l.getAttribute('data-lato'));
+    });
+  }
+
+  /* -------------------------------------------------------- menu «altro» -- */
+  function apriMenu() {
+    var scuro = temaScuro();
+    var p = pannello({
+      titolo: 'Opzioni',
+      corpo:
+        '<div class="pila pila--fitta">' +
+          '<button class="btn btn--largo" type="button" data-m="tema">' +
+            icona(scuro ? 'sole' : 'luna') + (scuro ? 'Passa al tema chiaro' : 'Passa al tema scuro') + '</button>' +
+          '<button class="btn btn--largo" type="button" data-m="guida">' +
+            icona('info') + 'Che cosa posso provare</button>' +
+          '<button class="btn btn--largo" type="button" data-m="azzera">' +
+            icona('cestino') + 'Azzera i dati della demo</button>' +
+        '</div>' +
+        '<p class="piccolo fioco" style="margin-top:16px">' +
+          'Prototipo dimostrativo: fornitori, prezzi e disponibilità sono inventati. ' +
+          'Quello che fai resta nel tuo browser.</p>'
+    });
+    p.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-m]');
+      if (!b) return;
+      var azione = b.getAttribute('data-m');
+      if (azione === 'tema') {
+        var prossimo = temaScuro() ? 'light' : 'dark';
+        applicaTema(prossimo);
+        store.aggiorna(function (s) { s.tema = prossimo; });
+        p.close();
+      }
+      if (azione === 'guida') {
+        p.close();
+        if (global.FERMO_DEMO) global.FERMO_DEMO.apriGuida();
+      }
+      if (azione === 'azzera') {
+        if (confirm('Cancello richieste, preferiti e annunci salvati in questo browser?')) {
+          store.azzera();
+          location.reload();
+        }
+      }
+    });
+    apri(p);
+  }
+
+  /* ------------------------------------------------------------- pannelli - */
+  /* Foglio che sale dal basso sul telefono, riquadro al centro sullo schermo
+     grande. Un solo componente per filtri, opzioni e guida. */
+  function pannello(opz) {
+    var d = document.createElement('dialog');
+    d.className = 'pannello';
+    d.innerHTML =
+      '<div class="pannello__testa">' + esc(opz.titolo) +
+        '<button class="tondo spinta" type="button" data-chiudi aria-label="Chiudi">' +
+          icona('chiudi') + '</button>' +
+      '</div>' +
+      '<div class="pannello__corpo">' + opz.corpo + '</div>' +
+      (opz.piede ? '<div class="pannello__piede">' + opz.piede + '</div>' : '');
+    document.body.appendChild(d);
+    d.addEventListener('click', function (e) {
+      if (e.target === d || e.target.closest('[data-chiudi]')) d.close();
+    });
+    d.addEventListener('close', function () {
+      if (opz.effimero !== false) setTimeout(function () { d.remove(); }, 0);
+    });
+    return d;
+  }
+  function apri(d) {
+    if (typeof d.showModal === 'function') d.showModal();
+    else d.setAttribute('open', '');
+  }
+
+  /* ------------------------------------------------------------------ tema */
+  function temaScuro() {
+    var t = document.documentElement.getAttribute('data-theme');
+    if (t) return t === 'dark';
+    return !!(global.matchMedia && global.matchMedia('(prefers-color-scheme: dark)').matches);
+  }
   function applicaTema(t) {
     if (t) document.documentElement.setAttribute('data-theme', t);
     else document.documentElement.removeAttribute('data-theme');
-    sincronizzaEtichettaTema();
-  }
-  function sincronizzaEtichettaTema() {
-    var et = document.querySelector('[data-ruolo="etichetta-tema"]');
-    if (!et) return;
-    var scuro = document.documentElement.getAttribute('data-theme') === 'dark' ||
-      (!document.documentElement.getAttribute('data-theme') &&
-       global.matchMedia && global.matchMedia('(prefers-color-scheme: dark)').matches);
-    et.textContent = scuro ? 'Turno notte' : 'Turno giorno';
-  }
-
-  /* Striscia sotto la testata: dice in che panni sei e che è una demo. */
-  function montaStriscia() {
-    var ruolo = RUOLI[ruoloCorrente()] || RUOLI.cliente;
-    var el = document.createElement('div');
-    el.className = 'striscia';
-    el.innerHTML =
-      '<div class="striscia__corpo">' +
-        '<span class="timbro timbro--pieno">Demo</span>' +
-        '<span class="striscia__testo"><strong>Stai navigando come ' + esc(ruolo.nome.toLowerCase()) +
-          '.</strong> ' + esc(ruolo.nota) + '</span>' +
-        '<button class="striscia__x" type="button" data-azione="chiudi-striscia" ' +
-          'aria-label="Chiudi la striscia informativa">×</button>' +
-      '</div>';
-    var testata = document.querySelector('.testata');
-    testata.parentNode.insertBefore(el, testata.nextSibling);
-    el.querySelector('[data-azione="chiudi-striscia"]').addEventListener('click', function () {
-      el.remove();
-    });
   }
 
   /* ====================================================== QUADRO SEDI ====== */
@@ -279,9 +370,6 @@
      la sagoma esce dai punti, e cio' che non sappiamo non lo inventiamo. */
   function quadro(beni, opzioni) {
     opzioni = opzioni || {};
-    /* Riquadro un po' più stretto dei limiti d'Italia: resta il margine sopra
-       Trento e sotto Palermo, e il vuoto del Sud si vede — perché è un dato,
-       non uno spazio sprecato. */
     var latMin = 37.4, latMax = 47.0, lonMin = 6.9, lonMax = 18.2;
     var kx = Math.cos(42 * Math.PI / 180);          /* compressione dei meridiani */
     var margine = 26;
@@ -360,13 +448,13 @@
       rete + punti + '</svg>';
   }
 
-  /* ================================================ AVANZAMENTO ORDINE ===== */
+  /* ================================================ AVANZAMENTO RICHIESTA == */
   var TAPPE = [
-    { id: 'in-attesa',    nome: 'Richiesta inviata' },
-    { id: 'confermata',   nome: 'Confermata' },
-    { id: 'lavorazione',  nome: 'In lavorazione' },
-    { id: 'consegnata',   nome: 'Consegnata' },
-    { id: 'pagata',       nome: 'Saldata' }
+    { id: 'in-attesa',    nome: 'Richiesta inviata', breve: 'Inviata' },
+    { id: 'confermata',   nome: 'Confermata',        breve: 'Confermata' },
+    { id: 'lavorazione',  nome: 'In lavorazione',    breve: 'In corso' },
+    { id: 'consegnata',   nome: 'Consegnata',        breve: 'Consegnata' },
+    { id: 'pagata',       nome: 'Saldata',           breve: 'Saldata' }
   ];
   function indiceTappa(stato) {
     for (var i = 0; i < TAPPE.length; i++) if (TAPPE[i].id === stato) return i;
@@ -374,15 +462,15 @@
   }
   function linea(stato) {
     if (stato === 'annullata') {
-      return '<div class="linea linea--ferma"><span class="timbro timbro--tenue">Percorso interrotto — richiesta annullata</span></div>';
+      return '<div class="avviso"><span>Percorso interrotto: la richiesta è stata annullata.</span></div>';
     }
     var qui = indiceTappa(stato);
-    return '<ol class="linea">' + TAPPE.map(function (t, i) {
+    return '<ol class="percorso">' + TAPPE.map(function (t, i) {
       var st = i < qui ? 'fatta' : i === qui ? 'qui' : 'attesa';
-      return '<li class="linea__tappa" data-stato="' + st + '">' +
-        '<span class="linea__bollo" aria-hidden="true">' + (i < qui ? '✓' : i + 1) + '</span>' +
-        '<span class="linea__nome">' + esc(t.nome) + '</span>' +
-        (st === 'qui' ? '<span class="solo-lettori">(fase attuale)</span>' : '') +
+      return '<li class="percorso__tappa" data-stato="' + st + '">' +
+        '<span class="percorso__bollo" aria-hidden="true">' + (i < qui ? '✓' : i + 1) + '</span>' +
+        '<span>' + esc(t.breve) + '</span>' +
+        (st === 'qui' ? '<span class="sr">(fase attuale)</span>' : '') +
       '</li>';
     }).join('') + '</ol>';
   }
@@ -400,44 +488,36 @@
     if (!voci.length) {
       return '<p class="tenue piccolo">Nessuna recensione: è una scheda appena pubblicata.</p>';
     }
-    return '<div class="pila">' + voci.map(function (v) {
+    return '<div class="pila pila--larga">' + voci.map(function (v) {
       return '<article class="recensione">' +
         '<div class="riga riga--fra">' +
-          '<div><strong>' + esc(v.autore) + '</strong> ' +
-            '<span class="timbro timbro--tenue">' + esc(D.modalita(v.modalita).nome) + '</span></div>' +
-          '<div class="riga" style="gap:8px">' + stelle(v.voto) +
-            '<span class="piccolo tenue numerico">' + fmt.data(v.quando) + '</span></div>' +
+          '<strong>' + esc(v.autore) + '</strong>' +
+          '<span class="riga" style="gap:8px">' + stelle(v.voto) +
+            '<span class="piccolo fioco num">' + fmt.data(v.quando) + '</span></span>' +
         '</div>' +
-        '<p style="margin:8px 0 0">' + esc(v.testo) + '</p>' +
+        '<p class="tenue" style="margin:6px 0 0">' + esc(v.testo) + '</p>' +
       '</article>';
     }).join('') + '</div>';
   }
 
+  /* ============================================================== PIEDE ==== */
   function montaPiede() {
     var el = document.createElement('footer');
     el.className = 'piede';
     el.innerHTML =
-      '<div class="piede__nastro zebrato"></div>' +
       '<div class="piede__corpo">' +
         '<div>' +
-          '<strong>FERMO</strong> — marketplace della capacita\' inutilizzata.<br>' +
-          '<span class="tenue">Prototipo dimostrativo. Dati inventati, nessun pagamento reale, ' +
-          'tutto lo stato resta nel browser.</span>' +
+          '<strong>FERMO</strong> — marketplace della capacità inutilizzata.<br>' +
+          '<span class="fioco">Prototipo dimostrativo: dati inventati, nessun pagamento reale.</span>' +
         '</div>' +
-        '<div>' +
-          '<a href="catalogo.html">Catalogo</a> · <a href="pubblica.html">Pubblica</a> · ' +
-          '<a href="console.html">Console</a> · <a href="prenotazioni.html">Prenotazioni</a><br>' +
-          '<button class="bottone bottone--piccolo bottone--nudo" type="button" data-azione="azzera" ' +
-          'style="margin-top:10px">Azzera dati demo</button>' +
+        '<div class="riga" style="gap:14px">' +
+          '<a href="catalogo.html">Catalogo</a>' +
+          '<a href="pubblica.html">Pubblica</a>' +
+          '<a href="console.html">Console</a>' +
+          '<a href="prenotazioni.html">Richieste</a>' +
         '</div>' +
       '</div>';
     document.body.appendChild(el);
-    el.querySelector('[data-azione="azzera"]').addEventListener('click', function () {
-      if (confirm('Cancello prenotazioni, preferiti e annunci salvati in questo browser?')) {
-        store.azzera();
-        location.reload();
-      }
-    });
   }
 
   /* ============================================================ AVVISI ===== */
@@ -452,7 +532,7 @@
     }
     var v = document.createElement('div');
     v.className = 'brindisi__voce';
-    v.innerHTML = '<b>' + esc(titolo) + '</b>' + esc(testo);
+    v.innerHTML = '<b>' + esc(titolo) + '</b><span>' + esc(testo) + '</span>';
     box.appendChild(v);
     setTimeout(function () {
       v.style.transition = 'opacity .2s linear';
@@ -485,57 +565,47 @@
     return 'pieno';
   }
 
+  /* Sul telefono è una riga con la figura a sinistra; da tablet in su la
+     stessa marcatura diventa una scheda in colonna. Un solo componente. */
   function scheda(a) {
     var cat = D.categoria(a.cat);
     var u = unita(a.prezzo.unita);
-    var mio = (a.origine === 'utente');
     var prezzo = a.prezzo.unita === 'corpo' ? fmt.euroTondo(a.prezzo.valore) : fmt.euro(a.prezzo.valore);
+    var via = 'asset.html?id=' + encodeURIComponent(a.id);
 
-    var sigle = a.mod.map(function (m) {
-      var md = D.modalita(m);
-      var stile = m === 'vendita' ? 'timbro--accento' : m === 'servizio' ? 'timbro--blu' : 'timbro--tenue';
-      return '<span class="timbro ' + stile + '">' + esc(md.nome) + '</span>';
-    }).join('');
+    var segni = [];
+    if (a.origine === 'utente') segni.push('<span class="pillola pillola--accento">Tuo annuncio</span>');
+    if (a.verificato) segni.push('<span class="pillola pillola--verde">✓ Verificato</span>');
+    if (a.mod.indexOf('vendita') !== -1) segni.push('<span class="pillola">In vendita</span>');
+    else if (a.oreLibere) segni.push('<span class="pillola">' + a.oreLibere + ' h libere</span>');
 
     return '' +
-      '<article class="scheda" data-id="' + esc(a.id) + '">' +
-        '<a class="scheda__figura" href="asset.html?id=' + encodeURIComponent(a.id) + '" ' +
-           'aria-label="Apri la scheda di ' + esc(a.titolo) + '">' +
-          glifo(cat.glifo) +
-          '<span class="scheda__matricola numerico">' + esc(a.id) + '</span>' +
-        '</a>' +
-        '<button class="scheda__preferito" type="button" data-azione="preferito" ' +
+      '<article class="bene" data-id="' + esc(a.id) + '">' +
+        '<div class="bene__fig">' + glifo(cat.glifo) + '</div>' +
+        '<button class="bene__cuore" type="button" data-azione="preferito" ' +
           'aria-pressed="' + (preferito(a.id) ? 'true' : 'false') + '" ' +
-          'aria-label="Salva ' + esc(a.titolo) + ' tra i preferiti">★</button>' +
-        '<div class="scheda__corpo">' +
-          '<div class="riga" style="gap:6px">' + sigle +
-            (mio ? '<span class="timbro timbro--hivis">Tuo annuncio</span>' : '') +
-            (a.verificato ? '<span class="timbro timbro--verde">✓ Verificato</span>' : '') +
-          '</div>' +
-          '<a class="scheda__titolo" href="asset.html?id=' + encodeURIComponent(a.id) + '" ' +
-             'style="text-decoration:none">' + esc(a.titolo) + '</a>' +
-          '<div class="scheda__dove">' + esc(a.citta) + ' (' + esc(a.prov) + ') · ' + esc(cat.breve) + '</div>' +
-          (a.oreSettimana ? misuraSaturazione(a) : '') +
-        '</div>' +
-        '<div class="scheda__piede">' +
-          '<div class="prezzo numerico">' + prezzo + '<small>' + esc(u.suffisso) + '</small></div>' +
-          '<div class="piccolo tenue">' + (a.recensioni ? '★ ' + a.rating.toFixed(1) + ' (' + a.recensioni + ')' : 'Nuovo') + '</div>' +
+          'aria-label="Salva ' + esc(a.titolo) + ' tra i preferiti">' + icona('cuore') + '</button>' +
+        '<div class="bene__corpo">' +
+          '<a class="bene__titolo" href="' + via + '">' + esc(a.titolo) + '</a>' +
+          '<div class="bene__dove">' + esc(a.citta) + ' (' + esc(a.prov) + ') · ' + esc(cat.breve) + '</div>' +
+          '<div class="riga" style="gap:6px">' + segni.join('') + '</div>' +
+          '<div class="bene__prezzo">' + prezzo + ' <small>' + esc(u.suffisso) + '</small></div>' +
         '</div>' +
       '</article>';
   }
 
   function misuraSaturazione(a) {
     var sat = saturazione(a);
-    var lv = livello(sat);
     return '' +
-      '<div class="misura">' +
-        '<div class="misura__testa">' +
-          '<span class="etichetta">Occupazione</span>' +
-          '<span class="numerico">' + fmt.pct(sat) + ' · ' + a.oreLibere + ' h libere</span>' +
+      '<div class="metro">' +
+        '<div class="metro__testa">' +
+          '<span>Occupazione</span>' +
+          '<span class="num">' + fmt.pct(sat) + ' · ' + a.oreLibere + ' h libere</span>' +
         '</div>' +
-        '<div class="misura__traccia" role="img" aria-label="Occupazione ' + fmt.pct(sat) +
+        '<div class="metro__traccia" role="img" aria-label="Occupazione ' + fmt.pct(sat) +
           ', ' + a.oreLibere + ' ore libere su ' + a.oreSettimana + ' a settimana">' +
-          '<div class="misura__pieno" data-livello="' + lv + '" style="width:' + (sat * 100).toFixed(1) + '%"></div>' +
+          '<div class="metro__pieno" data-livello="' + livello(sat) + '" style="width:' +
+            (sat * 100).toFixed(1) + '%"></div>' +
         '</div>' +
       '</div>';
   }
@@ -553,17 +623,16 @@
   }
 
   /* Colonne a serie singola: nessuna legenda (il titolo dice cosa e' tracciato),
-     etichetta diretta solo sul massimo, tacca di base a filo, 2 px d'aria
-     fra colonne adiacenti. */
+     etichetta diretta solo sul massimo, scala in una corsia dedicata. */
   function colonne(dati, opzioni) {
     opzioni = opzioni || {};
-    var L = 520, A = 170, base = A - 26, cima = 16;
-    var corsia = 52;                       /* corsia a sinistra per le tacche */
+    var L = 520, A = 180, base = A - 28, cima = 18;
+    var corsia = 54;
     var n = dati.length;
     var passo = (L - corsia) / n;
-    var spessore = Math.min(24, passo - 8);
+    var spessore = Math.min(26, passo - 8);
     var max = Math.max.apply(null, dati.map(function (d) { return d.valore; })) || 1;
-    var tetto = arrotondaSu(max);          /* la scala si ferma su una cifra tonda */
+    var tetto = arrotondaSu(max);
     var scala = function (v) { return (v / tetto) * (base - cima); };
     var maxIdx = dati.reduce(function (best, d, i) { return d.valore > dati[best].valore ? i : best; }, 0);
 
@@ -571,24 +640,23 @@
       var h = Math.max(2, scala(d.valore));
       var x = corsia + i * passo + (passo - spessore) / 2;
       var y = base - h;
-      var r = Math.min(4, spessore / 2, h);
-      /* estremita' arrotondata in alto, squadrata sulla linea di base */
+      var r = Math.min(5, spessore / 2, h);
       var p = 'M' + x + ' ' + base + ' V' + (y + r) +
               ' q0 ' + (-r) + ' ' + r + ' ' + (-r) +
               ' h' + (spessore - 2 * r) +
               ' q' + r + ' 0 ' + r + ' ' + r +
               ' V' + base + ' Z';
-      var etichetta = (i === maxIdx || opzioni.etichettaUltima && i === n - 1)
-        ? '<text class="etichetta-valore" x="' + (x + spessore / 2) + '" y="' + (y - 6) + '" text-anchor="middle">' +
+      var etichetta = (i === maxIdx || (opzioni.etichettaUltima && i === n - 1))
+        ? '<text class="valore" x="' + (x + spessore / 2) + '" y="' + (y - 6) + '" text-anchor="middle">' +
           esc(opzioni.formato ? opzioni.formato(d.valore) : d.valore) + '</text>'
         : '';
       return '<g><title>' + esc(d.nome + ': ' + (opzioni.formato ? opzioni.formato(d.valore) : d.valore)) + '</title>' +
              '<path class="colonna" d="' + p + '"/>' + etichetta + '</g>' +
-             '<text x="' + (x + spessore / 2) + '" y="' + (base + 14) + '" text-anchor="middle">' + esc(d.nome) + '</text>';
+             '<text x="' + (x + spessore / 2) + '" y="' + (base + 16) + '" text-anchor="middle">' + esc(d.nome) + '</text>';
     }).join('');
 
     /* Due sole tacche — il tetto e la meta' — per dare la scala ai valori
-       che non hanno etichetta diretta. Filo sottile, mai tratteggiato. */
+       che non hanno etichetta diretta. */
     var tacche = [1, 0.5].map(function (f) {
       var y = base - (base - cima) * f;
       var v = tetto * f;
@@ -605,19 +673,19 @@
       barre + '</svg>';
   }
 
-  /* Barre orizzontali a serie singola con etichetta di valore in punta */
+  /* Barre orizzontali: leggibili anche in una colonna stretta */
   function barre(dati, opzioni) {
     opzioni = opzioni || {};
     var max = Math.max.apply(null, dati.map(function (d) { return d.valore; })) || 1;
     return '<div class="pila">' + dati.map(function (d) {
       var pct = (d.valore / max) * 100;
       return '<div>' +
-        '<div class="misura__testa">' +
+        '<div class="metro__testa">' +
           '<span>' + esc(d.nome) + '</span>' +
-          '<span class="numerico">' + esc(opzioni.formato ? opzioni.formato(d.valore) : d.valore) + '</span>' +
+          '<span class="num">' + esc(opzioni.formato ? opzioni.formato(d.valore) : d.valore) + '</span>' +
         '</div>' +
-        '<div class="misura__traccia" style="height:14px">' +
-          '<div class="misura__pieno" style="width:' + pct.toFixed(1) + '%;background:' +
+        '<div class="metro__traccia" style="height:10px">' +
+          '<div class="metro__pieno" style="width:' + pct.toFixed(1) + '%;background:' +
             (d.colore || 'var(--serie-1)') + '"></div>' +
         '</div>' +
       '</div>';
@@ -627,10 +695,9 @@
   /* Tabella alternativa: ogni grafico ne ha una, apribile. Nessun dato solo-colore. */
   function tabellaDati(dati, intestazioni, opzioni) {
     opzioni = opzioni || {};
-    return '<details class="piccolo" style="margin-top:12px">' +
-      '<summary style="cursor:pointer;letter-spacing:.1em;text-transform:uppercase;font-size:11px">' +
-      'Vedi i dati in tabella</summary>' +
-      '<div class="involucro-scorrevole" style="margin-top:8px"><table class="tabella">' +
+    return '<details class="apribile">' +
+      '<summary>Vedi i dati in tabella</summary>' +
+      '<div class="scorre" style="margin-top:10px"><table class="tabella">' +
       '<thead><tr><th>' + esc(intestazioni[0]) + '</th><th class="num">' + esc(intestazioni[1]) + '</th></tr></thead>' +
       '<tbody>' + dati.map(function (d) {
         return '<tr><td>' + esc(d.nome) + '</td><td class="num">' +
@@ -688,9 +755,11 @@
 
     var s = store.tutto();
     applicaTema(s.tema);
-    montaTestata(pagina);
-    montaStriscia();
+    var acceso = TAB_DI[pagina] || pagina;
+    montaTestata(acceso);
     montaPiede();
+    montaTab(acceso);
+
     /* i preferiti si commutano ovunque compaia una scheda */
     document.addEventListener('click', function (e) {
       var b = e.target.closest('[data-azione="preferito"]');
@@ -700,11 +769,11 @@
       var dentro = commutaPreferito(art.getAttribute('data-id'));
       b.setAttribute('aria-pressed', dentro ? 'true' : 'false');
       brindisi(dentro ? 'Salvato' : 'Rimosso',
-        dentro ? 'Aggiunto alla tua lista dei preferiti.' : 'Tolto dalla lista dei preferiti.');
+        dentro ? 'Lo ritrovi in Richieste, sotto “Salvati”.' : 'Tolto dai preferiti.');
       document.dispatchEvent(new CustomEvent('fermo:preferiti'));
     });
 
-    if (global.FERMO_DEMO) global.FERMO_DEMO.montaGuida();
+    if (global.FERMO_DEMO) global.FERMO_DEMO.primoAccesso();
   }
 
   /* Il tema si applica subito, prima del primo disegno, per evitare il lampo */
@@ -722,6 +791,7 @@
     trova: trova,
     fmt: fmt,
     esc: esc,
+    icona: icona,
     glifo: glifo,
     scheda: scheda,
     misuraSaturazione: misuraSaturazione,
@@ -737,6 +807,8 @@
     muroRecensioni: muroRecensioni,
     ruoloCorrente: ruoloCorrente,
     RUOLI: RUOLI,
+    pannello: pannello,
+    apri: apri,
     preventivo: preventivo,
     nuovaPrenotazione: nuovaPrenotazione,
     preferito: preferito,

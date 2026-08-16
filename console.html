@@ -2,7 +2,7 @@
 <html lang="it">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Console — FERMO</title>
 <meta name="description" content="Pannello del proprietario: occupazione, ricavi, richieste in arrivo sulla capacità pubblicata.">
 <!-- anteprima dei collegamenti -->
@@ -13,87 +13,90 @@
 <meta property="og:url" content="https://fermo-demo.onrender.com/console">
 <meta property="og:title" content="Console — FERMO">
 <meta property="og:description" content="Pannello del proprietario: occupazione, ricavi, richieste in arrivo sulla capacità pubblicata.">
-<meta property="og:image" content="https://fermo-demo.onrender.com/assets/anteprima.png">
+<meta property="og:image" content="https://fermo-demo.onrender.com/assets/img/anteprima.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="FERMO — marketplace della capacita inutilizzata">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="theme-color" content="#C2410C" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#0F0F10" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#191A1D" media="(prefers-color-scheme: dark)">
 
 <link rel="stylesheet" href="assets/css/fermo.css">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%23C2410C'/><text x='16' y='23' font-size='20' font-family='monospace' fill='white' text-anchor='middle'>F</text></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23C2410C'/><text x='16' y='23' font-size='19' font-family='system-ui,sans-serif' font-weight='700' fill='white' text-anchor='middle'>F</text></svg>">
 </head>
 <body>
 
-<main class="foglio sezione--stretta">
+<main class="pagina contenitore">
 
-  <div class="capo" style="margin-top:16px">
-    <span class="capo__n">[CON]</span>
-    <h2>Console del proprietario</h2>
-    <span class="capo__nota" id="periodo">—</span>
+  <div class="sezione--stretta">
+    <h1 style="font-size:clamp(24px,6vw,32px)">Console</h1>
+    <p class="tenue" style="margin-top:6px" id="periodo">—</p>
   </div>
 
-  <div class="avviso avviso--occhio piccolo" style="margin-bottom:20px">
-    <strong>Stai guardando un parco macchine dimostrativo.</strong>
-    Gli annunci che pubblichi tu si aggiungono qui sotto e ai grafici.
-  </div>
-
-  <!-- ============================ NUMERO GUIDA + TESSERE -->
-  <div class="impianto impianto--pari">
-    <div class="blocco">
-      <div class="blocco__testa">Transato lordo · ultime 12 settimane</div>
-      <div class="blocco__corpo">
-        <div class="cifra numerico" id="ricavo-totale">—</div>
-        <p class="piccolo tenue" id="ricavo-nota" style="margin-top:8px">—</p>
-      </div>
-    </div>
-    <div class="griglia-2" style="gap:14px">
-      <div class="blocco blocco--piatto"><div class="blocco__corpo">
-        <div class="etichetta">Ore vendute / sett.</div>
-        <div class="cifra cifra--media numerico" id="t-ore">—</div>
-        <div class="piccolo tenue" id="t-ore-nota">—</div>
-      </div></div>
-      <div class="blocco blocco--piatto"><div class="blocco__corpo">
-        <div class="etichetta">Occupazione media</div>
-        <div class="cifra cifra--media numerico" id="t-sat">—</div>
-        <div class="piccolo tenue" id="t-sat-nota">—</div>
-      </div></div>
-      <div class="blocco blocco--piatto"><div class="blocco__corpo">
-        <div class="etichetta">Richieste da evadere</div>
-        <div class="cifra cifra--media numerico" id="t-richieste">—</div>
-        <div class="piccolo tenue">Rispondi entro 24 ore</div>
-      </div></div>
-      <div class="blocco blocco--piatto"><div class="blocco__corpo">
-        <div class="etichetta">Capacità invenduta</div>
-        <div class="cifra cifra--media numerico" id="t-persa">—</div>
-        <div class="piccolo tenue">Mancato ricavo settimanale</div>
-      </div></div>
+  <!-- ============================ TRANSATO -->
+  <div class="carta carta--rilievo">
+    <div class="carta__corpo">
+      <div class="metrica__nome">Transato lordo · ultime 12 settimane</div>
+      <div class="cifra cifra--grande" id="ricavo-totale">—</div>
+      <p class="piccolo tenue" style="margin-top:8px" id="ricavo-nota">—</p>
     </div>
   </div>
+
+  <!-- ============================ TESSERE -->
+  <div class="griglia griglia--2 griglia--4" style="margin-top:12px">
+    <div class="metrica">
+      <div class="metrica__nome">Ore vendute / sett.</div>
+      <div class="metrica__valore" id="t-ore">—</div>
+      <div class="metrica__nota" id="t-ore-nota">—</div>
+    </div>
+    <div class="metrica">
+      <div class="metrica__nome">Occupazione media</div>
+      <div class="metrica__valore" id="t-sat">—</div>
+      <div class="metrica__nota" id="t-sat-nota">—</div>
+    </div>
+    <div class="metrica">
+      <div class="metrica__nome">Richieste da evadere</div>
+      <div class="metrica__valore" id="t-richieste">—</div>
+      <div class="metrica__nota">Rispondi entro 24 ore</div>
+    </div>
+    <div class="metrica">
+      <div class="metrica__nome">Capacità invenduta</div>
+      <div class="metrica__valore" id="t-persa">—</div>
+      <div class="metrica__nota">Mancato ricavo a settimana</div>
+    </div>
+  </div>
+
+  <!-- ============================ RICHIESTE -->
+  <section class="sezione">
+    <div class="capo">
+      <h2>Richieste in arrivo</h2>
+      <span class="capo__nota" id="conteggio-richieste">—</span>
+    </div>
+    <div class="pila" id="lista-richieste"></div>
+  </section>
 
   <!-- ============================ GRAFICI -->
-  <section class="sezione">
-    <div class="griglia-2" style="gap:20px">
+  <section class="sezione--stretta">
+    <div class="capo"><h2>Andamento</h2></div>
+    <div class="griglia griglia--auto">
 
-      <div class="blocco">
-        <div class="blocco__testa">Transato per settimana</div>
-        <div class="blocco__corpo">
-          <p class="piccolo tenue" id="letto-settimane" style="min-height:2.4em;margin-bottom:8px">
-            Passa sopra una colonna per leggere il valore.</p>
+      <div class="carta">
+        <div class="carta__testa">Transato per settimana</div>
+        <div class="carta__corpo">
+          <p class="piccolo tenue" id="letto-settimane" style="min-height:2.6em">
+            Tocca una colonna per leggere il valore.</p>
           <div id="grafico-settimane"></div>
           <div id="tabella-settimane"></div>
         </div>
       </div>
 
-      <div class="blocco">
-        <div class="blocco__testa">Ore vendute per categoria</div>
-        <div class="blocco__corpo">
-          <p class="piccolo tenue" style="margin-bottom:12px">
-            Oltre la terza categoria le altre confluiscono in <em>Altro</em>: tre colori restano
-            distinguibili anche con daltonismo, di più no.</p>
+      <div class="carta">
+        <div class="carta__testa">Ore vendute per categoria</div>
+        <div class="carta__corpo">
           <div id="grafico-categorie"></div>
-          <div class="legenda" id="legenda-categorie" style="margin-top:14px"></div>
+          <p class="piccolo fioco" style="margin-top:14px">
+            Oltre la terza categoria le altre confluiscono in <em>Altro</em>: tre colori
+            restano distinguibili anche con daltonismo, di più no.</p>
           <div id="tabella-categorie"></div>
         </div>
       </div>
@@ -104,44 +107,11 @@
   <!-- ============================ PARCO -->
   <section class="sezione--stretta">
     <div class="capo">
-      <span class="capo__n">[P/1]</span>
       <h2>Parco pubblicato</h2>
       <span class="capo__nota">Occupazione per macchina</span>
     </div>
-    <div class="blocco">
-      <div class="involucro-scorrevole">
-        <table class="tabella" id="tabella-parco">
-          <thead>
-            <tr>
-              <th>Matricola</th><th>Bene</th><th>Occupazione</th>
-              <th class="num">Ore ferme</th><th class="num">Mancato ricavo</th><th></th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </div>
-  </section>
-
-  <!-- ============================ RICHIESTE -->
-  <section class="sezione--stretta">
-    <div class="capo">
-      <span class="capo__n">[P/2]</span>
-      <h2>Richieste in arrivo</h2>
-      <span class="capo__nota" id="conteggio-richieste">—</span>
-    </div>
-    <div class="blocco">
-      <div class="involucro-scorrevole">
-        <table class="tabella" id="tabella-richieste">
-          <thead>
-            <tr>
-              <th>Codice</th><th>Bene</th><th>Cliente</th><th>Quando</th>
-              <th class="num">Importo</th><th>Stato</th><th></th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
+    <div class="carta">
+      <div class="lista-dati" id="lista-parco"></div>
     </div>
   </section>
 

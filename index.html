@@ -2,7 +2,7 @@
 <html lang="it">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>FERMO — il marketplace della capacità inutilizzata</title>
 <meta name="description" content="Officine, laboratori, stampanti 3D, CNC, magazzini, furgoni e attrezzature ferme: si affittano, si vendono, si mettono a reddito. Prototipo dimostrativo.">
 <!-- anteprima dei collegamenti -->
@@ -13,242 +13,167 @@
 <meta property="og:url" content="https://fermo-demo.onrender.com/">
 <meta property="og:title" content="FERMO — il marketplace della capacità inutilizzata">
 <meta property="og:description" content="Officine, laboratori, stampanti 3D, CNC, magazzini, furgoni e attrezzature ferme: si affittano, si vendono, si mettono a reddito. Prototipo dimostrativo.">
-<meta property="og:image" content="https://fermo-demo.onrender.com/assets/anteprima.png">
+<meta property="og:image" content="https://fermo-demo.onrender.com/assets/img/anteprima.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="FERMO — marketplace della capacita inutilizzata">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="theme-color" content="#C2410C" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#0F0F10" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#191A1D" media="(prefers-color-scheme: dark)">
 
 <link rel="stylesheet" href="assets/css/fermo.css">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%23C2410C'/><text x='16' y='23' font-size='20' font-family='monospace' fill='white' text-anchor='middle'>F</text></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23C2410C'/><text x='16' y='23' font-size='19' font-family='system-ui,sans-serif' font-weight='700' fill='white' text-anchor='middle'>F</text></svg>">
 </head>
 <body>
 
-<main class="foglio sezione">
+<main class="pagina contenitore">
 
-  <!-- ============================================ COPERTINA -->
-  <div class="coperta">
-    <div class="coperta__alto">
-      <div class="riga riga--fra" style="align-items:flex-start">
-        <div style="max-width:64ch">
-          <div class="occhiello">Documento 001 · Marketplace della capacità inutilizzata</div>
-          <h1>In Italia<br>la macchina<br>ferma <span style="color:var(--accento)">costa</span><br>uguale.</h1>
-        </div>
-        <div class="etichetta stampiglia">
-          Rev. 01<br>
-          <span id="data-oggi">—</span><br>
-          Prototipo<br>
-          Non contrattuale
-        </div>
-      </div>
-      <p class="sommario" style="margin-top:24px">
-        Un centro di lavoro fermo il terzo turno, una cella frigo mezza vuota fuori stagione,
-        un furgone che resta in cortile il martedì. Il costo resta, il ricavo no.
-        <strong>FERMO</strong> mette in vendita quelle ore: chi ce le ha le pubblica, chi ne ha bisogno le prenota.
-      </p>
-      <div class="riga" style="margin-top:26px">
-        <a class="bottone bottone--primario" href="catalogo.html">Sfoglia il catalogo →</a>
-        <a class="bottone" href="pubblica.html">Ho una macchina ferma</a>
-      </div>
-    </div>
-
-    <div class="dati-copertina">
-      <div>
-        <div class="etichetta">Capacità a listino</div>
-        <div class="cifra cifra--media numerico" id="kpi-asset">—</div>
-      </div>
-      <div>
-        <div class="etichetta">Ore libere / settimana</div>
-        <div class="cifra cifra--media numerico" id="kpi-ore">—</div>
-      </div>
-      <div>
-        <div class="etichetta">Categorie</div>
-        <div class="cifra cifra--media numerico" id="kpi-cat">—</div>
-      </div>
-      <div>
-        <div class="etichetta">Province coperte</div>
-        <div class="cifra cifra--media numerico" id="kpi-citta">—</div>
-      </div>
-      <div>
-        <div class="etichetta">Occupazione media</div>
-        <div class="cifra cifra--media numerico" id="kpi-sat">—</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ============================================ PROBLEMA -->
+  <!-- ============================================== COPERTINA -->
   <section class="sezione">
-    <div class="capo">
-      <span class="capo__n">[01]</span>
-      <h2>Il buco che nessuno guarda</h2>
-      <span class="capo__nota">Diagnosi</span>
-    </div>
-    <div class="griglia-3">
-      <div class="blocco">
-        <div class="blocco__testa">Il proprietario</div>
-        <div class="blocco__corpo">
-          <p>Ha comprato una macchina da 200.000 € per una commessa che oggi occupa
-            il 55 % del tempo disponibile. Il leasing però si paga sul 100 %.</p>
-          <p class="tenue piccolo">Non vende le ore libere perché non sa a chi, e perché
-            aprire la porta a uno sconosciuto sembra un rischio più che un ricavo.</p>
-        </div>
-      </div>
-      <div class="blocco">
-        <div class="blocco__testa">Chi cerca</div>
-        <div class="blocco__corpo">
-          <p>Ha bisogno di cinque ore di fresa a 5 assi, una volta. Comprare non ha senso,
-            i terzisti non rispondono ai lotti piccoli, e il tempo passa a fare telefonate.</p>
-          <p class="tenue piccolo">Finisce per rinunciare al progetto o per accettare
-            un compromesso peggiore.</p>
-        </div>
-      </div>
-      <div class="blocco">
-        <div class="blocco__testa">Il mercato</div>
-        <div class="blocco__corpo">
-          <p>Le due parti sono a quaranta chilometri di distanza e non si trovano.
-            Non manca la capacità produttiva: manca l'indice.</p>
-          <p class="tenue piccolo">Il fabbisogno viene soddisfatto comprando altro ferro
-            che a sua volta resterà fermo. Il ciclo si ripete.</p>
-        </div>
-      </div>
+    <span class="pillola pillola--accento">Prototipo · dati inventati</span>
+    <h1 style="margin:14px 0 16px">La macchina ferma<br>costa uguale.</h1>
+    <p class="tenue medio" style="max-width:56ch">
+      Un centro di lavoro spento il terzo turno, una cella frigo mezza vuota, un furgone
+      in cortile il martedì. <strong>FERMO</strong> mette in vendita quelle ore:
+      chi ce le ha le pubblica, chi ne ha bisogno le prenota.
+    </p>
+    <div class="pila pila--fitta" style="margin-top:22px;max-width:340px">
+      <a class="btn btn--primario btn--largo" href="catalogo.html">Cerca capacità</a>
+      <a class="btn btn--largo" href="pubblica.html">Ho una macchina ferma</a>
     </div>
   </section>
 
-  <!-- ============================================ MECCANICA -->
+  <!-- ============================================== NUMERI -->
+  <section class="sezione--stretta">
+    <div class="griglia griglia--2 griglia--4" id="numeri"></div>
+  </section>
+
+  <!-- ============================================== COME FUNZIONA -->
+  <section class="sezione">
+    <div class="capo"><h2>Come funziona</h2></div>
+    <div class="griglia griglia--3">
+      <div class="carta"><div class="carta__corpo">
+        <span class="pillola pillola--piena">1</span>
+        <h3 style="margin:10px 0 6px">Cerchi</h3>
+        <p class="tenue piccolo">Filtri per categoria, città, modalità e disponibilità reale
+          nei prossimi 28 giorni.</p>
+      </div></div>
+      <div class="carta"><div class="carta__corpo">
+        <span class="pillola pillola--piena">2</span>
+        <h3 style="margin:10px 0 6px">Prenoti</h3>
+        <p class="tenue piccolo">Scegli giorno e quantità. Il preventivo si aggiorna mentre
+          scegli: commissione, copertura, IVA.</p>
+      </div></div>
+      <div class="carta"><div class="carta__corpo">
+        <span class="pillola pillola--piena">3</span>
+        <h3 style="margin:10px 0 6px">Il fornitore conferma</h3>
+        <p class="tenue piccolo">Ha 24 ore. L'importo resta bloccato e si libera
+          a lavoro consegnato.</p>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ============================================== MODALITÀ -->
   <section class="sezione">
     <div class="capo">
-      <span class="capo__n">[02]</span>
       <h2>Tre modi di cedere capacità</h2>
-      <span class="capo__nota">Modalità operative</span>
+      <span class="capo__nota">Tre contratti diversi</span>
     </div>
-    <div class="griglia-3" id="modalita-lista"></div>
-    <div class="avviso avviso--nota" style="margin-top:18px">
-      <strong>Il fornitore sceglie.</strong> La stessa macchina può essere a noleggio nelle ore diurne
-      e a conto lavoro di notte. La modalità cambia il prezzo, la responsabilità e chi mette le mani sul pezzo.
-    </div>
+    <div class="griglia griglia--3" id="modalita"></div>
+    <p class="piccolo fioco" style="margin-top:14px">
+      La stessa macchina può essere a noleggio di giorno e a conto lavoro di notte.
+      Cambia il prezzo, la responsabilità e chi mette le mani sul pezzo.
+    </p>
   </section>
 
-  <!-- ============================================ CATEGORIE -->
+  <!-- ============================================== CATEGORIE -->
   <section class="sezione">
     <div class="capo">
-      <span class="capo__n">[03]</span>
       <h2>Che cosa passa di qui</h2>
-      <span class="capo__nota">Tassonomia</span>
+      <a class="piccolo" href="catalogo.html">Vedi tutto</a>
     </div>
-    <div class="esiti" id="categorie-lista" style="grid-template-columns:repeat(auto-fill,minmax(220px,1fr))"></div>
+    <div class="griglia griglia--2 griglia--4" id="categorie"></div>
   </section>
 
-  <!-- ============================================ IN EVIDENZA -->
+  <!-- ============================================== IN EVIDENZA -->
   <section class="sezione">
     <div class="capo">
-      <span class="capo__n">[04]</span>
       <h2>Ferme adesso</h2>
-      <span class="capo__nota">Estratto dal catalogo</span>
+      <span class="capo__nota">Dal catalogo</span>
     </div>
-    <div class="esiti" id="evidenza"></div>
-    <div class="centrato" style="margin-top:26px">
-      <a class="bottone" href="catalogo.html">Vedi tutte le schede →</a>
+    <div class="elenco-beni" id="evidenza"></div>
+    <div class="centrato" style="margin-top:20px">
+      <a class="btn" href="catalogo.html">Vedi tutte le schede</a>
     </div>
   </section>
 
-  <!-- ============================================ FLUSSO -->
+  <!-- ============================================== QUANTO RENDE -->
   <section class="sezione">
     <div class="capo">
-      <span class="capo__n">[05]</span>
-      <h2>Come si chiude un giro</h2>
-      <span class="capo__nota">Procedura</span>
+      <h2>Quanto rende cedere le ore</h2>
+      <span class="capo__nota">Esempio</span>
     </div>
-    <div class="impianto">
-      <div class="blocco">
-        <div class="blocco__testa">Lato domanda — chi prenota</div>
-        <div class="blocco__corpo pila">
-          <div class="riga" style="align-items:flex-start;flex-wrap:nowrap">
-            <span class="timbro timbro--pieno">01</span>
-            <div><strong>Filtra</strong><br><span class="tenue piccolo">Categoria, distanza, modalità, prezzo, disponibilità reale nei prossimi 28 giorni.</span></div>
-          </div>
-          <div class="riga" style="align-items:flex-start;flex-wrap:nowrap">
-            <span class="timbro timbro--pieno">02</span>
-            <div><strong>Verifica la scheda tecnica</strong><br><span class="tenue piccolo">Corse, tolleranze, materiali, certificazioni, cosa è incluso e cosa no. Niente foto ammiccanti: numeri.</span></div>
-          </div>
-          <div class="riga" style="align-items:flex-start;flex-wrap:nowrap">
-            <span class="timbro timbro--pieno">03</span>
-            <div><strong>Configura e prenota</strong><br><span class="tenue piccolo">Quantità, giorni, assicurazione, trasporto. Il preventivo si aggiorna mentre scegli.</span></div>
-          </div>
-          <div class="riga" style="align-items:flex-start;flex-wrap:nowrap">
-            <span class="timbro timbro--pieno">04</span>
-            <div><strong>Il fornitore conferma</strong><br><span class="tenue piccolo">Ha 24 ore. L'importo resta bloccato e viene liberato a lavoro consegnato.</span></div>
-          </div>
-        </div>
-      </div>
-      <div class="blocco appiccicoso">
-        <div class="blocco__testa">Lato offerta — chi cede</div>
-        <div class="blocco__corpo pila">
-          <p class="piccolo">Pubblichi una volta, dichiari le ore che ti avanzano, decidi il prezzo minimo.
-            La piattaforma trattiene il <strong>9 %</strong> sul transato. Nessun canone.</p>
-          <div class="misura">
-            <div class="misura__testa"><span class="etichetta">Esempio · fresa 5 assi</span><span class="numerico">21 h libere</span></div>
-            <div class="misura__traccia"><div class="misura__pieno" data-livello="medio" style="width:53%"></div></div>
-          </div>
-          <table class="tabella piccolo">
-            <tbody>
-              <tr><td>21 h × 48 €</td><td class="num numerico">1.008 €</td></tr>
-              <tr><td>Commissione 9 %</td><td class="num numerico">−91 €</td></tr>
-              <tr><td><strong>Netto settimanale</strong></td><td class="num numerico"><strong>917 €</strong></td></tr>
-              <tr><td class="tenue">Su 44 settimane</td><td class="num numerico tenue">40.348 €</td></tr>
-            </tbody>
-          </table>
-          <a class="bottone bottone--primario bottone--largo" href="pubblica.html">Calcola sul tuo caso →</a>
-        </div>
+    <div class="carta">
+      <div class="carta__testa">Fresa 5 assi · 21 ore ferme a settimana</div>
+      <div class="carta__corpo">
+        <table class="tabella tabella--conto">
+          <tbody>
+            <tr><td>21 h × 48 €</td><td class="num">1.008 €</td></tr>
+            <tr><td>Commissione 9 %</td><td class="num">−91 €</td></tr>
+            <tr><td>Netto a settimana</td><td class="num">917 €</td></tr>
+            <tr><td>Su 44 settimane</td><td class="num">40.348 €</td></tr>
+          </tbody>
+        </table>
+        <p class="piccolo fioco" style="margin-top:12px">
+          Nessun canone: la piattaforma trattiene il 9 % solo su quello che incassi.
+        </p>
+        <a class="btn btn--primario btn--largo" href="pubblica.html" style="margin-top:16px">
+          Calcola sul tuo caso</a>
       </div>
     </div>
   </section>
 
-  <!-- ============================================ FIDUCIA -->
+  <!-- ============================================== FIDUCIA -->
   <section class="sezione">
     <div class="capo">
-      <span class="capo__n">[06]</span>
-      <h2>Perché uno sconosciuto dovrebbe entrare in officina</h2>
+      <h2>Perché aprire la porta a uno sconosciuto</h2>
       <span class="capo__nota">Presidi</span>
     </div>
-    <div class="griglia-4">
-      <div class="blocco blocco--piatto"><div class="blocco__corpo">
-        <div class="etichetta">Presidio 01</div>
-        <h3 style="margin:6px 0">Identità verificata</h3>
-        <p class="piccolo tenue">Partita IVA, visura e referente controllati prima della pubblicazione. Il timbro ✓ non si compra.</p>
+    <div class="griglia griglia--2 griglia--4">
+      <div class="carta"><div class="carta__corpo">
+        <h4>Identità verificata</h4>
+        <p class="piccolo tenue" style="margin-top:6px">Partita IVA, visura e referente
+          controllati prima della pubblicazione.</p>
       </div></div>
-      <div class="blocco blocco--piatto"><div class="blocco__corpo">
-        <div class="etichetta">Presidio 02</div>
-        <h3 style="margin:6px 0">Copertura danni</h3>
-        <p class="piccolo tenue">Polizza opzionale al 3,5 % dell'imponibile, con massimale sul valore dichiarato della macchina.</p>
+      <div class="carta"><div class="carta__corpo">
+        <h4>Copertura danni</h4>
+        <p class="piccolo tenue" style="margin-top:6px">Polizza opzionale al 3,5 %, con
+          massimale sul valore dichiarato.</p>
       </div></div>
-      <div class="blocco blocco--piatto"><div class="blocco__corpo">
-        <div class="etichetta">Presidio 03</div>
-        <h3 style="margin:6px 0">Pagamento vincolato</h3>
-        <p class="piccolo tenue">L'importo si sblocca alla consegna. Contestazione entro 5 giorni lavorativi.</p>
+      <div class="carta"><div class="carta__corpo">
+        <h4>Pagamento vincolato</h4>
+        <p class="piccolo tenue" style="margin-top:6px">L'importo si sblocca alla consegna.
+          Contestazione entro 5 giorni.</p>
       </div></div>
-      <div class="blocco blocco--piatto"><div class="blocco__corpo">
-        <div class="etichetta">Presidio 04</div>
-        <h3 style="margin:6px 0">Abilitazioni</h3>
-        <p class="piccolo tenue">Dove serve il patentino — carrelli, piattaforme, saldatura — la prenotazione lo richiede prima di confermare.</p>
+      <div class="carta"><div class="carta__corpo">
+        <h4>Abilitazioni</h4>
+        <p class="piccolo tenue" style="margin-top:6px">Dove serve il patentino, la
+          prenotazione lo chiede prima di confermare.</p>
       </div></div>
     </div>
   </section>
 
-  <!-- ============================================ CHIAMATA -->
-  <section class="sezione sezione--stretta">
-    <div class="blocco" style="border-width:2px">
-      <div class="blocco__corpo" style="padding:32px">
-        <div class="riga riga--fra">
-          <div style="max-width:52ch">
-            <h2 style="margin-bottom:10px">La tua macchina è ferma<br>mentre leggi questa riga.</h2>
-            <p class="tenue">Pubblicare richiede quattro passaggi e nessun impegno: puoi ritirare l'annuncio quando vuoi.</p>
-          </div>
-          <div class="pila" style="min-width:220px">
-            <a class="bottone bottone--primario bottone--largo" href="pubblica.html">Pubblica capacità</a>
-            <a class="bottone bottone--largo" href="console.html">Guarda la console</a>
-          </div>
+  <!-- ============================================== CHIAMATA -->
+  <section class="sezione">
+    <div class="carta carta--rilievo">
+      <div class="carta__corpo" style="padding:26px">
+        <h2>La tua macchina è ferma<br>mentre leggi questa riga.</h2>
+        <p class="tenue" style="margin:12px 0 20px;max-width:48ch">
+          Pubblicare richiede quattro passaggi e nessun impegno: l'annuncio si ritira quando vuoi.
+        </p>
+        <div class="pila pila--fitta" style="max-width:340px">
+          <a class="btn btn--primario btn--largo" href="pubblica.html">Pubblica capacità</a>
+          <a class="btn btn--largo" href="console.html">Guarda la console del fornitore</a>
         </div>
       </div>
     </div>
