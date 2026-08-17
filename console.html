@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Console — FERMO</title>
-<meta name="description" content="Pannello del proprietario: occupazione, ricavi, richieste in arrivo sulla capacità pubblicata.">
+<meta name="description" content="Pannello del venditore: valore a listino, visite alle schede, proposte da accettare sulle macchine in vendita.">
 <!-- anteprima dei collegamenti -->
 <link rel="canonical" href="https://fermo-demo.onrender.com/console">
 <meta property="og:type" content="website">
@@ -12,11 +12,11 @@
 <meta property="og:locale" content="it_IT">
 <meta property="og:url" content="https://fermo-demo.onrender.com/console">
 <meta property="og:title" content="Console — FERMO">
-<meta property="og:description" content="Pannello del proprietario: occupazione, ricavi, richieste in arrivo sulla capacità pubblicata.">
+<meta property="og:description" content="Pannello del venditore: valore a listino, visite alle schede, proposte da accettare sulle macchine in vendita.">
 <meta property="og:image" content="https://fermo-demo.onrender.com/assets/img/anteprima.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="FERMO — marketplace della capacita inutilizzata">
+<meta property="og:image:alt" content="FERMO — il mercato dei macchinari usati">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#191A1D" media="(prefers-color-scheme: dark)">
@@ -33,46 +33,46 @@
     <p class="tenue" style="margin-top:6px" id="periodo">—</p>
   </div>
 
-  <!-- ============================ TRANSATO -->
+  <!-- ============================ VALORE A LISTINO -->
   <div class="carta carta--rilievo">
     <div class="carta__corpo">
-      <div class="metrica__nome">Transato lordo · ultime 12 settimane</div>
-      <div class="cifra cifra--grande" id="ricavo-totale">—</div>
-      <p class="piccolo tenue" style="margin-top:8px" id="ricavo-nota">—</p>
+      <div class="metrica__nome">Valore a listino · macchine in vendita</div>
+      <div class="cifra cifra--grande" id="valore-totale">—</div>
+      <p class="piccolo tenue" style="margin-top:8px" id="valore-nota">—</p>
     </div>
   </div>
 
   <!-- ============================ TESSERE -->
   <div class="griglia griglia--2 griglia--4" style="margin-top:12px">
     <div class="metrica">
-      <div class="metrica__nome">Ore vendute / sett.</div>
-      <div class="metrica__valore" id="t-ore">—</div>
-      <div class="metrica__nota" id="t-ore-nota">—</div>
+      <div class="metrica__nome">Annunci attivi</div>
+      <div class="metrica__valore" id="t-annunci">—</div>
+      <div class="metrica__nota" id="t-annunci-nota">—</div>
     </div>
     <div class="metrica">
-      <div class="metrica__nome">Occupazione media</div>
-      <div class="metrica__valore" id="t-sat">—</div>
-      <div class="metrica__nota" id="t-sat-nota">—</div>
+      <div class="metrica__nome">Proposte da valutare</div>
+      <div class="metrica__valore" id="t-proposte">—</div>
+      <div class="metrica__nota">Rispondi entro 48 ore</div>
     </div>
     <div class="metrica">
-      <div class="metrica__nome">Richieste da evadere</div>
-      <div class="metrica__valore" id="t-richieste">—</div>
-      <div class="metrica__nota">Rispondi entro 24 ore</div>
+      <div class="metrica__nome">Visite alle schede</div>
+      <div class="metrica__valore" id="t-visite">—</div>
+      <div class="metrica__nota">ultime 12 settimane</div>
     </div>
     <div class="metrica">
-      <div class="metrica__nome">Capacità invenduta</div>
-      <div class="metrica__valore" id="t-persa">—</div>
-      <div class="metrica__nota">Mancato ricavo a settimana</div>
+      <div class="metrica__nome">Giorni medi a listino</div>
+      <div class="metrica__valore" id="t-giorni">—</div>
+      <div class="metrica__nota" id="t-giorni-nota">—</div>
     </div>
   </div>
 
-  <!-- ============================ RICHIESTE -->
+  <!-- ============================ PROPOSTE -->
   <section class="sezione">
     <div class="capo">
-      <h2>Richieste in arrivo</h2>
-      <span class="capo__nota" id="conteggio-richieste">—</span>
+      <h2>Proposte in arrivo</h2>
+      <span class="capo__nota" id="conteggio-proposte">—</span>
     </div>
-    <div class="pila" id="lista-richieste"></div>
+    <div class="pila" id="lista-proposte"></div>
   </section>
 
   <!-- ============================ GRAFICI -->
@@ -81,7 +81,7 @@
     <div class="griglia griglia--auto">
 
       <div class="carta">
-        <div class="carta__testa">Transato per settimana</div>
+        <div class="carta__testa">Visite per settimana</div>
         <div class="carta__corpo">
           <p class="piccolo tenue" id="letto-settimane" style="min-height:2.6em">
             Tocca una colonna per leggere il valore.</p>
@@ -91,7 +91,7 @@
       </div>
 
       <div class="carta">
-        <div class="carta__testa">Ore vendute per categoria</div>
+        <div class="carta__testa">Valore a listino per categoria</div>
         <div class="carta__corpo">
           <div id="grafico-categorie"></div>
           <p class="piccolo fioco" style="margin-top:14px">
@@ -107,8 +107,8 @@
   <!-- ============================ PARCO -->
   <section class="sezione--stretta">
     <div class="capo">
-      <h2>Parco pubblicato</h2>
-      <span class="capo__nota">Occupazione per macchina</span>
+      <h2>Macchine in vendita</h2>
+      <span class="capo__nota">Stato e giorni a listino</span>
     </div>
     <div class="carta">
       <div class="lista-dati" id="lista-parco"></div>

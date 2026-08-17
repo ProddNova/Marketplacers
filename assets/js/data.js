@@ -1,8 +1,9 @@
 /* =============================================================================
    FERMO — DATASET DIMOSTRATIVO
-   Nessuna rete, nessun backend: il catalogo vive qui dentro.
-   Le disponibilita' e gli storici sono generati con un PRNG seminato dall'ID,
-   cosi' la demo e' identica a ogni ricaricamento ma non e' scritta a mano.
+   Mercato dell'usato industriale: macchine che si vendono, non che si affittano.
+   Nessuna rete, nessun backend: il listino vive qui dentro.
+   Le visite, gli storici e le recensioni sono generati con un PRNG seminato
+   dall'ID, cosi' la demo e' identica a ogni ricaricamento ma non e' scritta a mano.
    ========================================================================== */
 (function (global) {
   'use strict';
@@ -28,663 +29,724 @@
 
   /* --- Tassonomia --------------------------------------------------------- */
   var CATEGORIE = [
-    { id: 'cnc',            nome: 'Macchine utensili CNC', breve: 'CNC',            glifo: 'cnc' },
-    { id: 'additivo',       nome: 'Stampa 3D e additivo',  breve: 'Additivo',       glifo: 'stampante' },
-    { id: 'taglio',         nome: 'Taglio laser e waterjet', breve: 'Taglio',       glifo: 'laser' },
-    { id: 'officina',       nome: 'Postazioni e saldatura', breve: 'Officina',      glifo: 'officina' },
-    { id: 'laboratorio',    nome: 'Laboratori e collaudo', breve: 'Laboratorio',    glifo: 'lab' },
-    { id: 'magazzino',      nome: 'Magazzini e celle',     breve: 'Magazzino',      glifo: 'magazzino' },
-    { id: 'veicoli',        nome: 'Furgoni e trasporto',   breve: 'Veicoli',        glifo: 'furgone' },
-    { id: 'movimentazione', nome: 'Sollevamento e movimentazione', breve: 'Movimentazione', glifo: 'muletto' }
+    { id: 'cnc',            nome: 'Macchine utensili CNC',     breve: 'CNC',            glifo: 'cnc' },
+    { id: 'additivo',       nome: 'Stampa 3D e additivo',      breve: 'Additivo',       glifo: 'stampante' },
+    { id: 'taglio',         nome: 'Taglio laser e waterjet',   breve: 'Taglio',         glifo: 'laser' },
+    { id: 'deformazione',   nome: 'Presse e piegatrici',       breve: 'Deformazione',   glifo: 'pressa' },
+    { id: 'officina',       nome: 'Attrezzature d\'officina',  breve: 'Officina',       glifo: 'officina' },
+    { id: 'laboratorio',    nome: 'Misura e laboratorio',      breve: 'Laboratorio',    glifo: 'lab' },
+    { id: 'magazzino',      nome: 'Scaffalature e stoccaggio', breve: 'Magazzino',      glifo: 'magazzino' },
+    { id: 'veicoli',        nome: 'Veicoli e mezzi d\'opera',  breve: 'Veicoli',        glifo: 'furgone' },
+    { id: 'movimentazione', nome: 'Sollevamento e carrelli',   breve: 'Movimentazione', glifo: 'muletto' }
   ];
 
-  var MODALITA = [
-    { id: 'affitto',  nome: 'Noleggio',    sigla: 'NOL', nota: 'Usi tu la macchina, in autonomia o con affiancamento.' },
-    { id: 'servizio', nome: 'Conto lavoro', sigla: 'C/L', nota: 'Lavora il fornitore. Tu mandi il file o il pezzo.' },
-    { id: 'vendita',  nome: 'Dismissione', sigla: 'VEN', nota: 'Macchina in vendita, visionabile in sede.' }
+  /* Tre modi di chiudere una vendita, perche' sono tre trattative diverse. */
+  var FORMULE = [
+    { id: 'fisso',      nome: 'Prezzo fisso', sigla: 'FIS',
+      nota: 'Prezzo esposto e bloccato: chi lo accetta per primo se la prende.' },
+    { id: 'trattativa', nome: 'Trattativa',   sigla: 'TRA',
+      nota: 'Fai la tua proposta: il venditore accetta, rifiuta o rilancia.' },
+    { id: 'asta',       nome: 'Asta a tempo', sigla: 'AST',
+      nota: 'Si rilancia fino alla scadenza. Se la base non viene coperta, non si vende.' }
   ];
 
-  /* --- Asset -------------------------------------------------------------- */
-  /* prezzo.unita: ora | giorno | settimana | mese | pezzo | m3mese | palletmese | km */
+  /* Lo stato dichiarato dal venditore, con la quota di vita residua che ne
+     deriva: e' quella che disegna il misuratore sulla scheda. */
+  var CONDIZIONI = [
+    { id: 'come-nuovo',     nome: 'Come nuovo',     quota: 0.95,
+      nota: 'Poche ore di lavoro, nessun intervento fatto.' },
+    { id: 'ottimo',         nome: 'Ottimo',         quota: 0.80,
+      nota: 'In produzione fino a oggi, manutenzioni regolari e documentate.' },
+    { id: 'buono',          nome: 'Buono',          quota: 0.58,
+      nota: 'Segni d\'uso normali per l\'età. Funziona, ma va messa a punto.' },
+    { id: 'da-revisionare', nome: 'Da revisionare', quota: 0.32,
+      nota: 'Serve un intervento prima di rimetterla in produzione. Il prezzo ne tiene conto.' },
+    { id: 'ricambi',        nome: 'Per ricambi',    quota: 0.12,
+      nota: 'Non funzionante: si compra per i pezzi o per il recupero.' }
+  ];
+
+  /* --- Listino ------------------------------------------------------------
+     prezzo   : euro richiesti, IVA esclusa
+     nuovo    : quanto costa oggi la stessa macchina nuova (serve al risparmio)
+     contatore: ore, km, battute o cicli — null se la macchina non ne ha uno
+     pezzi    : quante unita' compone il lotto (1 = macchina singola)
+     ritiroFra: giorni prima che si possa portare via
+     garanzia : mesi coperti dal venditore (0 = venduta vista e piaciuta)
+     consegna : ritiro | inclusa | accordo
+     smontaggio: incluso | acquirente | gia-smontato
+     asta     : { base, rilancio, scadeFra, offerte } se la formula lo prevede  */
   var ASSET = [
     {
-      id: 'FRM-CNC-0142', cat: 'cnc', mod: ['affitto', 'servizio'],
+      id: 'FRM-CNC-0142', cat: 'cnc', mod: ['fisso', 'trattativa'],
       titolo: 'Centro di lavoro 5 assi Haas UMC-750',
       citta: 'Brescia', prov: 'BS', regione: 'Lombardia',
-      fornitore: 'Meccanica Vallecamonica srl', dal: 2009, rating: 4.8, recensioni: 132, verificato: true,
-      prezzo: { valore: 48, unita: 'ora' }, minimo: '4 ore', preavviso: 2,
-      oreSettimana: 45, oreLibere: 21,
-      sintesi: 'Terzo turno scoperto da marzo. Cediamo le notti e i sabati con operatore o in autonomia previo patentino.',
+      venditore: 'Meccanica Vallecamonica srl', dal: 2009, rating: 4.8, recensioni: 132, verificato: true,
+      prezzo: 118000, nuovo: 310000,
+      anno: 2016, contatore: { valore: 14200, unita: 'ore' }, condizione: 'ottimo',
+      pezzi: 1, ritiroFra: 21, garanzia: 6, consegna: 'accordo', smontaggio: 'incluso',
+      sintesi: 'Sostituita da un cinque assi più grande. Esce dalla produzione a fine mese, con tutta l\'attrezzatura e i post processor già fatti.',
       specifiche: [
         ['Corse X/Y/Z', '762 × 508 × 508 mm'],
         ['Tavola rotobasculante', 'Ø 500 mm, 300 kg'],
         ['Mandrino', '8.100 giri/min, 22,4 kW'],
         ['Magazzino utensili', '40 posti, cambio 4,5 s'],
         ['Controllo', 'Haas NGC — post Fusion 360 / Mastercam'],
-        ['Tolleranza tipica', '± 0,015 mm'],
-        ['Materiali', 'Acciai, inox, alluminio, titanio Gr.5']
+        ['Ore mandrino', '9.100 sulle 14.200 macchina'],
+        ['Ultimo intervento', 'Revisione mandrino e guide, marzo 2025']
       ],
-      certificazioni: ['ISO 9001:2015', 'EN 9100'],
-      incluso: ['Refrigerante e trucioli', 'Attrezzaggio base morse', 'Metrologia a campione'],
-      escluso: ['Utensili speciali', 'Programmazione CAM', 'Trasporto pezzi'],
-      logistica: 'in-sede'
+      certificazioni: ['Marcatura CE', 'Verifica periodica 2025'],
+      incluso: ['40 portautensili con attacco', 'Set morse e staffaggi', 'Manuali, schemi e licenze controllo'],
+      escluso: ['Trasporto', 'Utensili da taglio', 'Riqualificazione elettrica in sede tua'],
+      motivo: 'sostituzione'
     },
     {
-      id: 'FRM-CNC-0088', cat: 'cnc', mod: ['servizio'],
-      titolo: 'Tornio a fantina mobile Citizen L20',
+      id: 'FRM-CNC-0088', cat: 'cnc', mod: ['trattativa'],
+      titolo: 'Tornio a fantina mobile Citizen L20 con caricatore',
       citta: 'Lumezzane', prov: 'BS', regione: 'Lombardia',
-      fornitore: 'Torneria Bortolotti', dal: 1998, rating: 4.6, recensioni: 74, verificato: true,
-      prezzo: { valore: 0.42, unita: 'pezzo' }, minimo: '2.000 pezzi', preavviso: 10,
-      oreSettimana: 120, oreLibere: 34,
-      sintesi: 'Barra fino a Ø 20. Abbiamo liberato una macchina dopo la chiusura di una commessa automotive.',
+      venditore: 'Torneria Bortolotti', dal: 1998, rating: 4.6, recensioni: 74, verificato: true,
+      prezzo: 46500, nuovo: 168000,
+      anno: 2011, contatore: { valore: 38400, unita: 'ore' }, condizione: 'buono',
+      pezzi: 1, ritiroFra: 10, garanzia: 3, consegna: 'ritiro', smontaggio: 'incluso',
+      sintesi: 'Chiusa la commessa automotive che la teneva occupata, il reparto si accorcia. Macchina rodata, mai ferma più di una settimana.',
       specifiche: [
         ['Diametro barra', 'max Ø 20 mm'],
         ['Assi', '5 assi, 2 mandrini, utensili motorizzati'],
-        ['Caricatore', 'LNS Sprint 20, barre 3 m'],
-        ['Cicli non presidiati', 'fino a 14 ore'],
-        ['Tolleranza tipica', '± 0,008 mm'],
-        ['Materiali', 'Ottone, automatici, inox 303/316']
+        ['Caricatore', 'LNS Sprint 20 incluso, barre 3 m'],
+        ['Ore mandrino principale', '38.400'],
+        ['Pinze e portautensili', 'Corredo completo compreso'],
+        ['Note', 'Sostituite pinze e cinghie nel 2024']
       ],
-      certificazioni: ['ISO 9001:2015'],
-      incluso: ['Programmazione', 'Controllo dimensionale SPC', 'Lavaggio pezzi'],
-      escluso: ['Materia prima', 'Trattamenti galvanici'],
-      logistica: 'spedizione'
+      certificazioni: ['Marcatura CE'],
+      incluso: ['Caricatore barre LNS', 'Corredo pinze e portautensili', 'Programmi delle lavorazioni storiche'],
+      escluso: ['Trasporto', 'Olio e refrigerante', 'Smaltimento fanghi'],
+      motivo: 'fine-commessa'
     },
     {
-      id: 'FRM-CNC-0311', cat: 'cnc', mod: ['affitto'],
+      id: 'FRM-CNC-0311', cat: 'cnc', mod: ['fisso'],
       titolo: 'Fresatrice a portale 3 assi per legno e compositi',
       citta: 'Pesaro', prov: 'PU', regione: 'Marche',
-      fornitore: 'Falegnameria Rossini snc', dal: 2014, rating: 4.4, recensioni: 41, verificato: false,
-      prezzo: { valore: 26, unita: 'ora' }, minimo: '3 ore', preavviso: 3,
-      oreSettimana: 40, oreLibere: 26,
-      sintesi: 'Area di lavoro 3 × 1,5 m. Aperta a designer e allestitori nei pomeriggi e il venerdi tutto il giorno.',
+      venditore: 'Falegnameria Rossini snc', dal: 2014, rating: 4.4, recensioni: 41, verificato: false,
+      prezzo: 21800, nuovo: 58000,
+      anno: 2018, contatore: { valore: 6900, unita: 'ore' }, condizione: 'ottimo',
+      pezzi: 1, ritiroFra: 5, garanzia: 0, consegna: 'ritiro', smontaggio: 'acquirente',
+      sintesi: 'Comprata per una linea di arredo che non abbiamo più. Piano 3 × 1,5 m, vuoto a quattro settori, aspirazione compresa.',
       specifiche: [
         ['Piano di lavoro', '3.050 × 1.550 mm'],
         ['Corsa Z', '200 mm'],
-        ['Elettromandrino', '9 kW raffreddato ad aria'],
-        ['Aspirazione', 'Impianto 7,5 kW con filtro a maniche'],
-        ['Tenuta pezzo', 'Vuoto a 4 settori'],
-        ['Materiali', 'Multistrato, MDF, HPL, alveolare, PVC espanso']
+        ['Elettromandrino', '9 kW raffreddato ad aria, 1.100 ore'],
+        ['Aspirazione', 'Impianto 7,5 kW con filtro a maniche, compreso'],
+        ['Tenuta pezzo', 'Vuoto a 4 settori con pompa da 250 m³/h'],
+        ['Controllo', 'Osai con postazione e licenza CAM']
       ],
       certificazioni: [],
-      incluso: ['Aspirazione', 'Frese standard Ø 6-12', 'Piano sacrificale'],
-      escluso: ['Frese diamantate', 'Smaltimento sfridi oltre 2 m³'],
-      logistica: 'in-sede'
+      incluso: ['Impianto di aspirazione', 'Pompa del vuoto', 'Frese standard Ø 6-12', 'Piano sacrificale nuovo'],
+      escluso: ['Trasporto', 'Smontaggio e carico', 'Frese diamantate'],
+      motivo: 'cambio-produzione'
     },
     {
-      id: 'FRM-ADD-0455', cat: 'additivo', mod: ['servizio'],
+      id: 'FRM-CNC-0577', cat: 'cnc', mod: ['fisso', 'trattativa'],
+      titolo: 'Rettificatrice in tondo CNC per alberi fino a 800 mm',
+      citta: 'Reggio Emilia', prov: 'RE', regione: 'Emilia-Romagna',
+      venditore: 'Rettifiche Padane', dal: 1990, rating: 4.8, recensioni: 97, verificato: true,
+      prezzo: 63000, nuovo: 195000,
+      anno: 2013, contatore: { valore: 26800, unita: 'ore' }, condizione: 'ottimo',
+      pezzi: 1, ritiroFra: 30, garanzia: 6, consegna: 'accordo', smontaggio: 'incluso',
+      sintesi: 'Accorpiamo due reparti in un sito solo e una delle due rettifiche resta fuori. Geometrie verificate a gennaio, rapporto allegato.',
+      specifiche: [
+        ['Distanza tra le punte', '800 mm'],
+        ['Diametro max', 'Ø 320 mm'],
+        ['Mola', 'CBN con equilibratura automatica'],
+        ['Misura in macchina', 'Marposs in-process, funzionante'],
+        ['Precisione verificata', 'IT4, rugosità Ra 0,2 — collaudo 01/2026'],
+        ['Ricambi', 'Mandrino di scorta revisionato compreso']
+      ],
+      certificazioni: ['Marcatura CE', 'Collaudo geometrico 2026'],
+      incluso: ['Mandrino di scorta', 'Misuratore Marposs', 'Rapporto di collaudo'],
+      escluso: ['Trasporto', 'Mole', 'Impianto di aspirazione nebbie'],
+      motivo: 'accorpamento'
+    },
+    {
+      id: 'FRM-ADD-0455', cat: 'additivo', mod: ['trattativa'],
       titolo: 'Sinterizzazione laser SLS — EOS P396',
       citta: 'Torino', prov: 'TO', regione: 'Piemonte',
-      fornitore: 'Additive Lab Piemonte', dal: 2016, rating: 4.9, recensioni: 218, verificato: true,
-      prezzo: { valore: 4.8, unita: 'pezzo' }, minimo: '1 pezzo', preavviso: 4,
-      oreSettimana: 100, oreLibere: 28,
-      sintesi: 'Vendiamo il riempimento della camera: se il tuo lotto entra negli spazi vuoti, paghi solo il volume occupato.',
+      venditore: 'Additive Lab Piemonte', dal: 2016, rating: 4.9, recensioni: 218, verificato: true,
+      prezzo: 96000, nuovo: 265000,
+      anno: 2017, contatore: { valore: 11400, unita: 'ore' }, condizione: 'ottimo',
+      pezzi: 1, ritiroFra: 14, garanzia: 6, consegna: 'accordo', smontaggio: 'incluso',
+      sintesi: 'Passiamo a una macchina a camera più grande. Questa ha lavorato solo PA12, con polvere sempre certificata.',
       specifiche: [
         ['Volume di costruzione', '340 × 340 × 600 mm'],
-        ['Materiale', 'PA2200 (nylon 12), PA12 caricato vetro'],
-        ['Spessore layer', '0,10 / 0,12 mm'],
-        ['Tolleranza tipica', '± 0,3 % (min ± 0,3 mm)'],
-        ['Finiture', 'Sabbiata, tinta nera, vibrofinitura'],
-        ['Lead time', '72 ore su lotti sotto 2 dm³']
+        ['Laser', 'CO₂ 70 W, sostituito nel 2023'],
+        ['Materiali lavorati', 'Solo PA2200 e PA12 caricato vetro'],
+        ['Ore laser', '4.900 dal cambio sorgente'],
+        ['Stazione di setaccio', 'Compresa, con aspiratore ATEX'],
+        ['Software', 'Licenze EOSPRINT trasferibili']
       ],
-      certificazioni: ['ISO 9001:2015'],
-      incluso: ['Depolverizzazione', 'Sabbiatura', 'Report di stampa'],
-      escluso: ['Tintura', 'Certificazione materiale su lotto'],
-      logistica: 'spedizione'
+      certificazioni: ['Marcatura CE', 'Contratto di assistenza attivo fino al 2027'],
+      incluso: ['Stazione di setaccio e depolverizzazione', 'Due piattaforme di costruzione', 'Licenze software'],
+      escluso: ['Polvere di scorta', 'Trasporto', 'Installazione'],
+      motivo: 'sostituzione'
     },
     {
-      id: 'FRM-ADD-0173', cat: 'additivo', mod: ['affitto', 'servizio'],
-      titolo: 'Farm di 8 stampanti FDM industriali',
+      id: 'FRM-ADD-0173', cat: 'additivo', mod: ['fisso'],
+      titolo: 'Lotto di 8 stampanti FDM industriali con carrelli',
       citta: 'Bologna', prov: 'BO', regione: 'Emilia-Romagna',
-      fornitore: 'Officina Zero Nove', dal: 2019, rating: 4.5, recensioni: 96, verificato: true,
-      prezzo: { valore: 39, unita: 'giorno' }, minimo: '1 giorno', preavviso: 1,
-      oreSettimana: 168, oreLibere: 92,
-      sintesi: 'Otto macchine in rete, prenotabili singolarmente. Coda gestita da noi, tu carichi lo G-code.',
+      venditore: 'Officina Zero Nove', dal: 2019, rating: 4.5, recensioni: 96, verificato: true,
+      prezzo: 14400, nuovo: 41000,
+      anno: 2020, contatore: { valore: 9800, unita: 'ore' }, condizione: 'buono',
+      pezzi: 8, ritiroFra: 2, garanzia: 3, consegna: 'inclusa', smontaggio: 'gia-smontato',
+      sintesi: 'La farm si ferma: chiudiamo il servizio di stampa conto terzi. Otto macchine identiche, ricambi in comune, si vendono solo in blocco.',
       specifiche: [
-        ['Macchine', '8 × 300 × 300 × 400 mm'],
-        ['Materiali', 'PLA, PETG, ABS, ASA, PA-CF'],
-        ['Ugello', '0,4 / 0,6 / 0,8 mm intercambiabile'],
-        ['Camera', 'Chiusa e riscaldata su 4 macchine'],
-        ['Monitoraggio', 'Webcam e stop remoto per ogni macchina'],
-        ['Prezzo indicato', 'per macchina/giorno, filamento escluso']
+        ['Macchine', '8 unità identiche, 300 × 300 × 400 mm'],
+        ['Camera', 'Chiusa e riscaldata su 4 delle 8'],
+        ['Ugelli', 'Corredo 0,4 / 0,6 / 0,8 mm per ciascuna'],
+        ['Ore medie per macchina', '1.225'],
+        ['Stato', 'Tutte funzionanti, tre con piano sostituito'],
+        ['Prezzo', 'Riferito all\'intero lotto, 1.800 € a macchina']
       ],
       certificazioni: [],
-      incluso: ['Manutenzione', 'Accesso remoto', 'Prima messa a punto profilo'],
-      escluso: ['Filamento', 'Post-processing'],
-      logistica: 'spedizione'
+      incluso: ['Otto carrelli porta-macchina', 'Ricambi di scorta (ugelli, piani, cinghie)', 'Profili di stampa collaudati'],
+      escluso: ['Filamento', 'Postazione di controllo'],
+      motivo: 'cessazione-ramo'
     },
     {
-      id: 'FRM-ADD-0620', cat: 'additivo', mod: ['servizio'],
+      id: 'FRM-ADD-0620', cat: 'additivo', mod: ['asta'],
       titolo: 'Fusione laser metallo LPBF — acciaio e AlSi10Mg',
       citta: 'Modena', prov: 'MO', regione: 'Emilia-Romagna',
-      fornitore: 'Tecnopolvere spa', dal: 2012, rating: 4.7, recensioni: 63, verificato: true,
-      prezzo: { valore: 310, unita: 'giorno' }, minimo: '1 job', preavviso: 12,
-      oreSettimana: 110, oreLibere: 19,
-      sintesi: 'Slot di camera condivisa due volte a settimana. Ideale per prototipi funzionali e ricambi fuori produzione.',
+      venditore: 'Tecnopolvere spa', dal: 2012, rating: 4.7, recensioni: 63, verificato: true,
+      prezzo: 132000, nuovo: 480000,
+      anno: 2015, contatore: { valore: 21600, unita: 'ore' }, condizione: 'buono',
+      pezzi: 1, ritiroFra: 25, garanzia: 0, consegna: 'accordo', smontaggio: 'incluso',
+      asta: { base: 78000, rilancio: 1000, scadeFra: 6, offerte: 9 },
+      sintesi: 'Dismissione del reparto metallo dopo il cambio di proprietà. Si vende all\'asta perché il valore lo faccia il mercato, non noi.',
       specifiche: [
         ['Volume di costruzione', '250 × 250 × 300 mm'],
-        ['Materiali', '1.2709, 316L, AlSi10Mg, Inconel 718'],
-        ['Spessore layer', '0,03 / 0,05 mm'],
-        ['Post-trattamenti', 'Distensione, taglio a filo, HIP su richiesta'],
-        ['Densita\' tipica', '> 99,7 %'],
-        ['Controlli', 'Certificato di colata e report densita\'']
+        ['Sorgente', 'Fibra 400 W, ore laser 12.800'],
+        ['Materiali lavorati', '1.2709, 316L, AlSi10Mg'],
+        ['Impianto gas', 'Generatore di azoto compreso'],
+        ['Ultimo service', 'Ottobre 2025, filtri e guarnizioni'],
+        ['Stato', 'In produzione fino alla settimana scorsa']
       ],
-      certificazioni: ['ISO 9001:2015', 'ISO 13485'],
-      incluso: ['Distensione in forno', 'Taglio dalla piastra', 'Report'],
-      escluso: ['Lavorazioni di finitura', 'HIP'],
-      logistica: 'spedizione'
+      certificazioni: ['Marcatura CE', 'Registro manutenzioni completo'],
+      incluso: ['Generatore di azoto', 'Due piastre di costruzione', 'Stazione di depolverizzazione'],
+      escluso: ['Polveri', 'Trasporto', 'Forno di distensione'],
+      motivo: 'dismissione-reparto'
     },
     {
-      id: 'FRM-TAG-0207', cat: 'taglio', mod: ['servizio'],
-      titolo: 'Laser fibra 6 kW — lamiera fino a 20 mm',
-      citta: 'Vicenza', prov: 'VI', regione: 'Veneto',
-      fornitore: 'Carpenteria Bassano srl', dal: 2004, rating: 4.7, recensioni: 187, verificato: true,
-      prezzo: { valore: 92, unita: 'ora' }, minimo: '1 ora', preavviso: 2,
-      oreSettimana: 90, oreLibere: 24,
-      sintesi: 'Secondo turno scarico. Accettiamo DXF con nesting a nostro carico, preventivo entro 4 ore lavorative.',
+      id: 'FRM-ADD-0931', cat: 'additivo', mod: ['fisso'],
+      titolo: 'Tre stampanti SLA per resine tecniche, con post-processo',
+      citta: 'Milano', prov: 'MI', regione: 'Lombardia',
+      venditore: 'Prototipi Lambrate', dal: 2020, rating: 4.5, recensioni: 112, verificato: true,
+      prezzo: 6900, nuovo: 19500,
+      anno: 2021, contatore: { valore: 5200, unita: 'ore' }, condizione: 'ottimo',
+      pezzi: 3, ritiroFra: 1, garanzia: 3, consegna: 'inclusa', smontaggio: 'gia-smontato',
+      sintesi: 'Ci siamo spostati sull\'additivo a polvere e le SLA restano ferme in una stanza. Tre macchine più lavaggio e polimerizzazione.',
       specifiche: [
-        ['Area di taglio', '3.000 × 1.500 mm'],
-        ['Sorgente', 'Fibra 6 kW'],
-        ['Spessori', 'Acciaio 20 mm · Inox 12 mm · Allumino 10 mm'],
-        ['Cambio pallet', 'Automatico, 25 s'],
-        ['Tolleranza tipica', '± 0,1 mm'],
-        ['Servizi collegati', 'Piegatura fino a 3 m, 135 t']
-      ],
-      certificazioni: ['ISO 9001:2015', 'EN 1090-2 EXC3'],
-      incluso: ['Nesting', 'Sbavatura leggera', 'Imballo su bancale'],
-      escluso: ['Materiale', 'Zincatura'],
-      logistica: 'spedizione'
-    },
-    {
-      id: 'FRM-TAG-0512', cat: 'taglio', mod: ['servizio', 'affitto'],
-      titolo: 'Waterjet 5 assi per marmo, vetro e compositi',
-      citta: 'Carrara', prov: 'MS', regione: 'Toscana',
-      fornitore: 'Apuane Stone Lab', dal: 2011, rating: 4.6, recensioni: 58, verificato: true,
-      prezzo: { valore: 78, unita: 'ora' }, minimo: '2 ore', preavviso: 5,
-      oreSettimana: 50, oreLibere: 27,
-      sintesi: 'Taglio a freddo senza zona termicamente alterata. Fermo nei mesi di bassa stagione del settore lapideo.',
-      specifiche: [
-        ['Area di taglio', '4.000 × 2.000 mm'],
-        ['Pressione', '4.100 bar'],
-        ['Spessore max', '150 mm in pietra, 80 mm in acciaio'],
-        ['Testa', '5 assi con compensazione conicita\''],
-        ['Materiali', 'Marmo, granito, vetro, carbonio, gomma, titanio'],
-        ['Consumo abrasivo', 'incluso fino a 12 kg/h']
-      ],
-      certificazioni: ['ISO 9001:2015'],
-      incluso: ['Abrasivo', 'Smaltimento fanghi', 'Carico/scarico con ponte 5 t'],
-      escluso: ['Lucidatura bordi', 'Trasporto lastre'],
-      logistica: 'in-sede'
-    },
-    {
-      id: 'FRM-TAG-0349', cat: 'taglio', mod: ['affitto'],
-      titolo: 'Laser CO2 90 W da banco — legno, tessuto, plexiglass',
-      citta: 'Napoli', prov: 'NA', regione: 'Campania',
-      fornitore: 'Fablab Sanita\'', dal: 2017, rating: 4.3, recensioni: 149, verificato: false,
-      prezzo: { valore: 14, unita: 'ora' }, minimo: '1 ora', preavviso: 1,
-      oreSettimana: 60, oreLibere: 38,
-      sintesi: 'Macchina aperta al pubblico, tariffa oraria a consumo. Corso di abilitazione di 90 minuti una tantum.',
-      specifiche: [
-        ['Area di lavoro', '900 × 600 mm'],
-        ['Sorgente', 'CO₂ 90 W con raffreddamento a chiller'],
-        ['Spessori', 'Compensato 10 mm · PMMA 12 mm · Feltro 8 mm'],
-        ['Incisione', '1.000 dpi'],
-        ['Software', 'LightBurn su postazione in sede'],
-        ['Aspirazione', 'Filtro a carboni attivi']
+        ['Macchine', '3 unità, volume 192 × 120 × 245 mm'],
+        ['Risoluzione XY', '50 µm'],
+        ['Post-processo', 'Stazione di lavaggio e forno di cura compresi'],
+        ['Serbatoi', 'Sei serbatoi, due nuovi mai montati'],
+        ['Ore medie per macchina', '1.730'],
+        ['Prezzo', 'Riferito al lotto completo']
       ],
       certificazioni: [],
-      incluso: ['Assistenza in sala', 'Aspirazione', 'Scarti di prova'],
-      escluso: ['Materiale', 'Abilitazione (35 € una tantum)'],
-      logistica: 'in-sede'
+      incluso: ['Stazione lavaggio e cura', 'Sei serbatoi e quattro piattaforme', 'Due litri di resina Tough'],
+      escluso: ['Resine oltre l\'avanzo', 'Cappa di aspirazione'],
+      motivo: 'cambio-tecnologia'
     },
     {
-      id: 'FRM-OFF-0119', cat: 'officina', mod: ['affitto'],
-      titolo: 'Isola di saldatura TIG/MIG con banco 3 m',
-      citta: 'Padova', prov: 'PD', regione: 'Veneto',
-      fornitore: 'Officina Meccanica Zaccaria', dal: 2001, rating: 4.5, recensioni: 62, verificato: true,
-      prezzo: { valore: 180, unita: 'settimana' }, minimo: '1 settimana', preavviso: 4,
-      oreSettimana: 45, oreLibere: 45,
-      sintesi: 'Isola liberata dopo il pensionamento di un saldatore. Banco, aspirazione fumi e generatori pronti all\'uso.',
+      id: 'FRM-TAG-0207', cat: 'taglio', mod: ['fisso', 'trattativa'],
+      titolo: 'Laser fibra 6 kW con cambio pallet — lamiera fino a 20 mm',
+      citta: 'Vicenza', prov: 'VI', regione: 'Veneto',
+      venditore: 'Carpenteria Bassano srl', dal: 2004, rating: 4.7, recensioni: 187, verificato: true,
+      prezzo: 168000, nuovo: 430000,
+      anno: 2019, contatore: { valore: 18900, unita: 'ore' }, condizione: 'ottimo',
+      pezzi: 1, ritiroFra: 45, garanzia: 12, consegna: 'accordo', smontaggio: 'incluso',
+      sintesi: 'Arriva un 12 kW a giugno e questa esce. Lavora tutti i giorni fino al ritiro, quindi si vede in funzione su appuntamento.',
       specifiche: [
-        ['Banco', '3.000 × 1.500 mm forato Ø 16'],
-        ['Generatori', 'TIG AC/DC 250 A · MIG sinergico 400 A'],
-        ['Aspirazione', 'Braccio articolato 3 m certificato'],
-        ['Gas', 'Argon e mix in bombole da 50 l'],
-        ['Attrezzatura', 'Squadre magnetiche, morsetti, positioner 150 kg'],
-        ['Accesso', 'Lun-ven 7:00-19:00, badge personale']
+        ['Area di taglio', '3.000 × 1.500 mm'],
+        ['Sorgente', 'Fibra 6 kW, 18.900 ore totali'],
+        ['Spessori', 'Acciaio 20 mm · Inox 12 mm · Alluminio 10 mm'],
+        ['Cambio pallet', 'Automatico, 25 s — compreso'],
+        ['Aspirazione', 'Impianto filtrante 2023, filtri nuovi'],
+        ['Garanzia', '12 mesi sulla sorgente, contratto trasferibile']
       ],
-      certificazioni: ['EN 1090-2 EXC2'],
-      incluso: ['Gas fino a 2 bombole/mese', 'Aspirazione', 'DPI di reparto'],
-      escluso: ['Materiale d\'apporto', 'Patentino (obbligatorio)'],
-      logistica: 'in-sede'
+      certificazioni: ['Marcatura CE', 'Contratto assistenza trasferibile'],
+      incluso: ['Cambio pallet automatico', 'Impianto di aspirazione', 'Chiller', 'Software di nesting con licenza'],
+      escluso: ['Trasporto eccezionale', 'Gas tecnici', 'Opere murarie'],
+      motivo: 'sostituzione'
     },
     {
-      id: 'FRM-OFF-0388', cat: 'officina', mod: ['affitto'],
-      titolo: 'Cabina di verniciatura pressurizzata 7 m',
-      citta: 'Prato', prov: 'PO', regione: 'Toscana',
-      fornitore: 'Verniciature Bisenzio', dal: 2007, rating: 4.4, recensioni: 88, verificato: true,
-      prezzo: { valore: 240, unita: 'giorno' }, minimo: '1 giorno', preavviso: 6,
-      oreSettimana: 45, oreLibere: 16,
-      sintesi: 'Cabina scarica il lunedi e il venerdi. Ciclo completo con essiccazione a 60 °C.',
+      id: 'FRM-TAG-0512', cat: 'taglio', mod: ['trattativa'],
+      titolo: 'Waterjet 5 assi 4 × 2 m per marmo, vetro e compositi',
+      citta: 'Carrara', prov: 'MS', regione: 'Toscana',
+      venditore: 'Apuane Stone Lab', dal: 2011, rating: 4.6, recensioni: 58, verificato: true,
+      prezzo: 74000, nuovo: 215000,
+      anno: 2013, contatore: { valore: 24500, unita: 'ore' }, condizione: 'buono',
+      pezzi: 1, ritiroFra: 20, garanzia: 3, consegna: 'ritiro', smontaggio: 'incluso',
+      sintesi: 'Il lapideo tira meno e la seconda macchina non serve più. Pompa revisionata a novembre con documenti.',
       specifiche: [
-        ['Dimensioni utili', '7.000 × 4.000 × 3.000 mm'],
-        ['Filtrazione', 'Plenum + filtri a pavimento, ricambio 25.000 m³/h'],
-        ['Essiccazione', 'Fino a 60 °C, ciclo programmabile'],
-        ['Alimentazione aria', 'Compressore 10 bar essiccato'],
-        ['Illuminazione', '1.200 lux, resa cromatica 90'],
-        ['Autorizzazioni', 'AUA in corso di validita\'']
+        ['Area di taglio', '4.000 × 2.000 mm'],
+        ['Pompa', '4.100 bar, revisione completa 11/2025'],
+        ['Testa', '5 assi con compensazione conicità'],
+        ['Spessore max', '150 mm in pietra, 80 mm in acciaio'],
+        ['Ore pompa dal service', '900'],
+        ['Impianto abrasivo', 'Silo e dosatore compresi']
       ],
-      certificazioni: ['ISO 9001:2015', 'AUA regionale'],
-      incluso: ['Filtri', 'Smaltimento overspray', 'Aria compressa'],
-      escluso: ['Vernici e catalizzatori', 'Mascheratura'],
-      logistica: 'in-sede'
+      certificazioni: ['Marcatura CE', 'Fattura di revisione pompa'],
+      incluso: ['Silo abrasivo e dosatore', 'Vasca e sistema di scarico fanghi', 'Ricambi teste di taglio'],
+      escluso: ['Trasporto', 'Ponte di sollevamento', 'Abrasivo'],
+      motivo: 'calo-ordini'
     },
     {
-      id: 'FRM-OFF-0501', cat: 'officina', mod: ['vendita'],
+      id: 'FRM-TAG-0349', cat: 'taglio', mod: ['fisso'],
+      titolo: 'Laser CO2 90 W da banco — legno, tessuto, plexiglass',
+      citta: 'Napoli', prov: 'NA', regione: 'Campania',
+      venditore: 'Fablab Sanità', dal: 2017, rating: 4.3, recensioni: 149, verificato: false,
+      prezzo: 2400, nuovo: 7800,
+      anno: 2019, contatore: { valore: 3200, unita: 'ore' }, condizione: 'buono',
+      pezzi: 1, ritiroFra: 0, garanzia: 0, consegna: 'ritiro', smontaggio: 'acquirente',
+      sintesi: 'Abbiamo preso una macchina più grande e questa è di troppo. Tubo sostituito da 400 ore, aspirazione compresa.',
+      specifiche: [
+        ['Area di lavoro', '900 × 600 mm'],
+        ['Sorgente', 'CO₂ 90 W, tubo nuovo da 400 ore'],
+        ['Raffreddamento', 'Chiller compreso'],
+        ['Spessori', 'Compensato 10 mm · PMMA 12 mm'],
+        ['Aspirazione', 'Filtro a carboni attivi compreso'],
+        ['Software', 'LightBurn, licenza da riacquistare']
+      ],
+      certificazioni: [],
+      incluso: ['Chiller', 'Filtro a carboni attivi', 'Due tubi di scorta'],
+      escluso: ['Licenza software', 'Trasporto', 'Materiali'],
+      motivo: 'sostituzione'
+    },
+    {
+      id: 'FRM-DEF-0501', cat: 'deformazione', mod: ['asta'],
       titolo: 'Pressa piegatrice Gasparini 100 t — 3.100 mm',
       citta: 'Udine', prov: 'UD', regione: 'Friuli-Venezia Giulia',
-      fornitore: 'Fratelli Toppan srl in liquidazione', dal: 1994, rating: 4.1, recensioni: 12, verificato: true,
-      prezzo: { valore: 21500, unita: 'corpo' }, minimo: '—', preavviso: 15,
-      oreSettimana: 0, oreLibere: 0,
-      sintesi: 'Dismissione per cessata attivita\'. Macchina del 2008, revisionata nel 2021, visionabile con appuntamento.',
+      venditore: 'Fratelli Toppan srl in liquidazione', dal: 1994, rating: 4.1, recensioni: 12, verificato: true,
+      prezzo: 21500, nuovo: 98000,
+      anno: 2008, contatore: { valore: 18400, unita: 'ore' }, condizione: 'buono',
+      pezzi: 1, ritiroFra: 15, garanzia: 0, consegna: 'ritiro', smontaggio: 'acquirente',
+      asta: { base: 12500, rilancio: 500, scadeFra: 3, offerte: 17 },
+      sintesi: 'Cessata attività: il curatore vende all\'asta tutto il reparto. Macchina in produzione fino a giugno, revisionata nel 2021.',
       specifiche: [
         ['Forza', '100 t'],
         ['Lunghezza di piega', '3.100 mm'],
         ['Assi controllati', 'Y1, Y2, X, R'],
-        ['Controllo', 'ESA S630 grafico'],
+        ['Controllo', 'ESA S630 grafico, funzionante'],
         ['Ore macchina', '18.400'],
-        ['Utensili inclusi', 'Set punzoni e matrici 12 pezzi'],
-        ['Stato', 'Funzionante, in produzione fino a giugno']
+        ['Utensili', 'Set punzoni e matrici, 12 pezzi, compreso']
       ],
       certificazioni: ['Marcatura CE', 'Verifica periodica 2025'],
-      incluso: ['Set utensili', 'Manuali e schemi', 'Assistenza al carico'],
-      escluso: ['Smontaggio', 'Trasporto', 'IVA'],
-      logistica: 'ritiro'
+      incluso: ['Set utensili 12 pezzi', 'Manuali e schemi elettrici', 'Assistenza al carico con muletto'],
+      escluso: ['Smontaggio', 'Trasporto', 'Fermo macchina oltre i 15 giorni'],
+      motivo: 'liquidazione'
     },
     {
-      id: 'FRM-LAB-0264', cat: 'laboratorio', mod: ['servizio'],
-      titolo: 'Camera climatica 1.000 l — cicli termici accelerati',
+      id: 'FRM-DEF-0233', cat: 'deformazione', mod: ['fisso', 'trattativa'],
+      titolo: 'Cesoia a ghigliottina idraulica 3.000 × 10 mm',
+      citta: 'Padova', prov: 'PD', regione: 'Veneto',
+      venditore: 'Officina Meccanica Zaccaria', dal: 2001, rating: 4.5, recensioni: 62, verificato: true,
+      prezzo: 16500, nuovo: 54000,
+      anno: 2010, contatore: { valore: 42000, unita: 'cicli' }, condizione: 'buono',
+      pezzi: 1, ritiroFra: 7, garanzia: 3, consegna: 'ritiro', smontaggio: 'incluso',
+      sintesi: 'Da quando tagliamo al laser la cesoia lavora due giorni al mese. Lame girate l\'anno scorso, tre taglienti ancora buoni.',
+      specifiche: [
+        ['Lunghezza di taglio', '3.000 mm'],
+        ['Spessore max', '10 mm su acciaio dolce'],
+        ['Angolo di taglio', 'Regolabile, registro motorizzato 600 mm'],
+        ['Lame', 'Girate nel 2025, tre taglienti disponibili'],
+        ['Controllo', 'Delem DAC-310'],
+        ['Cicli contati', '42.000']
+      ],
+      certificazioni: ['Marcatura CE', 'Verifica periodica 2025'],
+      incluso: ['Registro posteriore motorizzato', 'Set lame di scorta', 'Carrello raccolta sfridi'],
+      escluso: ['Trasporto', 'Basamento'],
+      motivo: 'cambio-tecnologia'
+    },
+    {
+      id: 'FRM-DEF-0788', cat: 'deformazione', mod: ['trattativa'],
+      titolo: 'Pressa eccentrica 160 t con svolgitore e raddrizzatore',
+      citta: 'Bergamo', prov: 'BG', regione: 'Lombardia',
+      venditore: 'Stampi e Tranciati Brembo srl', dal: 1987, rating: 4.4, recensioni: 38, verificato: true,
+      prezzo: 38000, nuovo: 150000,
+      anno: 1998, contatore: { valore: 12400000, unita: 'battute' }, condizione: 'buono',
+      pezzi: 1, ritiroFra: 30, garanzia: 0, consegna: 'ritiro', smontaggio: 'venditore',
+      sintesi: 'Linea completa: pressa, svolgitore e raddrizzatore si vendono insieme. Frizione e freno rifatti nel 2022 con certificato.',
+      specifiche: [
+        ['Forza', '160 t'],
+        ['Corsa', '120 mm regolabile'],
+        ['Piano', '1.400 × 800 mm'],
+        ['Linea', 'Svolgitore 2 t e raddrizzatore compresi'],
+        ['Sicurezze', 'Barriere ottiche e doppio comando a norma'],
+        ['Battute contate', '12,4 milioni']
+      ],
+      certificazioni: ['Marcatura CE', 'Verifica frizione-freno 2022', 'Fascicolo tecnico'],
+      incluso: ['Svolgitore e raddrizzatore', 'Barriere ottiche', 'Fascicolo tecnico e schemi'],
+      escluso: ['Stampi', 'Trasporto', 'Fondazione'],
+      motivo: 'accorpamento'
+    },
+    {
+      id: 'FRM-OFF-0119', cat: 'officina', mod: ['fisso'],
+      titolo: 'Isola di saldatura TIG/MIG con banco 3 m e aspirazione',
+      citta: 'Piacenza', prov: 'PC', regione: 'Emilia-Romagna',
+      venditore: 'Carpenteria Val Trebbia srl', dal: 2005, rating: 4.2, recensioni: 24, verificato: false,
+      prezzo: 7900, nuovo: 26500,
+      anno: 2015, contatore: null, condizione: 'buono',
+      pezzi: 1, ritiroFra: 3, garanzia: 0, consegna: 'ritiro', smontaggio: 'acquirente',
+      sintesi: 'Il saldatore è andato in pensione e l\'isola resta ferma. Si vende tutta insieme: banco, generatori, aspirazione e attrezzatura.',
+      specifiche: [
+        ['Banco', '3.000 × 1.500 mm forato Ø 16, piano ancora piano'],
+        ['Generatori', 'TIG AC/DC 250 A (2016) · MIG sinergico 400 A (2015)'],
+        ['Aspirazione', 'Braccio articolato 3 m con filtro, certificato'],
+        ['Attrezzatura', 'Squadre magnetiche, morsetti, positioner 150 kg'],
+        ['Stato', 'Funzionante, torce da sostituire'],
+        ['Contatore', 'Nessuno: ore non registrate']
+      ],
+      certificazioni: ['Marcatura CE sui generatori'],
+      incluso: ['Positioner 150 kg', 'Squadre e morsetti', 'Impianto di aspirazione'],
+      escluso: ['Bombole', 'Trasporto', 'Torce di ricambio'],
+      motivo: 'pensionamento'
+    },
+    {
+      id: 'FRM-OFF-0388', cat: 'officina', mod: ['trattativa'],
+      titolo: 'Cabina di verniciatura pressurizzata 7 m — smontata',
+      citta: 'Prato', prov: 'PO', regione: 'Toscana',
+      venditore: 'Verniciature Bisenzio', dal: 2007, rating: 4.4, recensioni: 88, verificato: true,
+      prezzo: 18500, nuovo: 68000,
+      anno: 2012, contatore: null, condizione: 'buono',
+      pezzi: 1, ritiroFra: 0, garanzia: 0, consegna: 'ritiro', smontaggio: 'gia-smontato',
+      sintesi: 'Abbiamo cambiato capannone e la cabina non ci sta. È già smontata, pallettizzata e numerata pezzo per pezzo.',
+      specifiche: [
+        ['Dimensioni utili', '7.000 × 4.000 × 3.000 mm'],
+        ['Filtrazione', 'Plenum e filtri a pavimento, ricambio 25.000 m³/h'],
+        ['Essiccazione', 'Bruciatore fino a 60 °C, funzionante'],
+        ['Illuminazione', '1.200 lux, resa cromatica 90'],
+        ['Stato', 'Smontata, numerata, su otto bancali'],
+        ['Documenti', 'Disegni di montaggio e schemi compresi']
+      ],
+      certificazioni: ['Marcatura CE', 'Dichiarazione di conformità impianto'],
+      incluso: ['Disegni di montaggio', 'Bruciatore e quadro elettrico', 'Filtri nuovi imballati'],
+      escluso: ['Trasporto', 'Rimontaggio', 'Pratica AUA nella tua sede'],
+      motivo: 'trasloco'
+    },
+    {
+      id: 'FRM-OFF-0666', cat: 'officina', mod: ['fisso'],
+      titolo: 'Lotto di 6 macchine da cucire industriali con tavolo taglio',
+      citta: 'Carpi', prov: 'MO', regione: 'Emilia-Romagna',
+      venditore: 'Confezioni Emilia snc', dal: 1999, rating: 4.6, recensioni: 51, verificato: true,
+      prezzo: 5400, nuovo: 22000,
+      anno: 2016, contatore: null, condizione: 'buono',
+      pezzi: 6, ritiroFra: 12, garanzia: 0, consegna: 'inclusa', smontaggio: 'incluso',
+      sintesi: 'Sei postazioni ferme dopo il calo degli ordini. Si vendono in blocco con il tavolo di taglio e la caldaia da stiro.',
+      specifiche: [
+        ['Macchine', '2 lineari, 2 taglia-cuci, 1 ricopritura, 1 travetta'],
+        ['Marca', 'Juki e Pegasus, tutte revisionate nel 2024'],
+        ['Tavolo di taglio', '6 m con taglierina verticale, compreso'],
+        ['Stiro', 'Caldaia industriale con due ferri, compresa'],
+        ['Stato', 'Tutte in ordine, cinghie nuove'],
+        ['Prezzo', 'Riferito all\'intero lotto']
+      ],
+      certificazioni: ['Marcatura CE'],
+      incluso: ['Tavolo di taglio 6 m', 'Caldaia da stiro e due ferri', 'Ricambi e aghi'],
+      escluso: ['Filati e tessuti', 'Sedute'],
+      motivo: 'calo-ordini'
+    },
+    {
+      id: 'FRM-OFF-0902', cat: 'officina', mod: ['asta'],
+      titolo: 'Compressore a vite 55 kW con essiccatore e serbatoio 1.000 l',
+      citta: 'Cesena', prov: 'FC', regione: 'Emilia-Romagna',
+      venditore: 'Conserve Romagna spa', dal: 1996, rating: 4.7, recensioni: 91, verificato: true,
+      prezzo: 6800, nuovo: 29000,
+      anno: 2014, contatore: { valore: 21000, unita: 'ore' }, condizione: 'buono',
+      pezzi: 1, ritiroFra: 8, garanzia: 0, consegna: 'ritiro', smontaggio: 'incluso',
+      asta: { base: 3400, rilancio: 100, scadeFra: 2, offerte: 23 },
+      sintesi: 'Sostituito da due macchine più piccole a inverter. Va all\'asta con l\'essiccatore e il serbatoio, in blocco.',
+      specifiche: [
+        ['Potenza', '55 kW, 8 bar'],
+        ['Portata', '9,8 m³/min'],
+        ['Ore totali', '21.000, tagliando alle 20.500'],
+        ['Essiccatore', 'A ciclo frigorifero, compreso'],
+        ['Serbatoio', '1.000 l con certificato INAIL'],
+        ['Stato', 'In esercizio fino al ritiro']
+      ],
+      certificazioni: ['Marcatura CE', 'Verifica INAIL serbatoio 2025'],
+      incluso: ['Essiccatore', 'Serbatoio 1.000 l certificato', 'Filtri di linea'],
+      escluso: ['Trasporto', 'Tubazioni fisse', 'Quadro di alimentazione'],
+      motivo: 'sostituzione'
+    },
+    {
+      id: 'FRM-LAB-0264', cat: 'laboratorio', mod: ['trattativa'],
+      titolo: 'Camera climatica 1.000 l — da −40 a +180 °C',
       citta: 'Roma', prov: 'RM', regione: 'Lazio',
-      fornitore: 'Istituto Prove Materiali Tiburtina', dal: 1988, rating: 4.9, recensioni: 204, verificato: true,
-      prezzo: { valore: 420, unita: 'settimana' }, minimo: '72 ore', preavviso: 8,
-      oreSettimana: 168, oreLibere: 61,
-      sintesi: 'I cicli lunghi lasciano buchi di giorni interi. Vendiamo le finestre libere con supervisione tecnica inclusa.',
+      venditore: 'Istituto Prove Materiali Tiburtina', dal: 1988, rating: 4.9, recensioni: 204, verificato: true,
+      prezzo: 24500, nuovo: 82000,
+      anno: 2014, contatore: { valore: 31800, unita: 'ore' }, condizione: 'ottimo',
+      pezzi: 1, ritiroFra: 18, garanzia: 6, consegna: 'accordo', smontaggio: 'incluso',
+      sintesi: 'Sostituita da una camera più capiente. Tarata a gennaio, con certificato ACCREDIA ancora valido.',
       specifiche: [
         ['Volume', '1.000 l'],
         ['Temperatura', '−40 °C ÷ +180 °C'],
-        ['Umidita\'', '10 % ÷ 98 % UR'],
+        ['Umidità', '10 % ÷ 98 % UR'],
         ['Gradiente', '5 °C/min'],
-        ['Registrazione', 'Dati ogni 10 s, export CSV firmato'],
-        ['Norme', 'IEC 60068-2-1/2/14/30']
+        ['Taratura', 'ACCREDIA gennaio 2026, certificato compreso'],
+        ['Gruppo frigo', 'Compressore sostituito nel 2023']
       ],
-      certificazioni: ['ISO/IEC 17025', 'Taratura ACCREDIA 2026'],
-      incluso: ['Supervisione tecnica', 'Report dati', 'Fissaggio provini standard'],
-      escluso: ['Rapporto di prova accreditato (+180 €)', 'Attrezzature speciali'],
-      logistica: 'spedizione'
+      certificazioni: ['Marcatura CE', 'Certificato di taratura ACCREDIA 2026'],
+      incluso: ['Certificato di taratura', 'Software di registrazione con licenza', 'Ripiani e passacavi'],
+      escluso: ['Trasporto', 'Nuova taratura dopo lo spostamento'],
+      motivo: 'sostituzione'
     },
     {
-      id: 'FRM-LAB-0410', cat: 'laboratorio', mod: ['servizio', 'affitto'],
-      titolo: 'Tomografo industriale CT per controllo non distruttivo',
+      id: 'FRM-LAB-0410', cat: 'laboratorio', mod: ['fisso', 'trattativa'],
+      titolo: 'Tomografo industriale CT 225 kV per controllo non distruttivo',
       citta: 'Trento', prov: 'TN', regione: 'Trentino-Alto Adige',
-      fornitore: 'Metrologia Alpina srl', dal: 2015, rating: 4.8, recensioni: 47, verificato: true,
-      prezzo: { valore: 145, unita: 'ora' }, minimo: '2 ore', preavviso: 7,
-      oreSettimana: 40, oreLibere: 14,
-      sintesi: 'Analisi porosita\' e confronto CAD-parte senza tagliare il pezzo. Slot infrasettimanali dopo le 17.',
+      venditore: 'Metrologia Alpina srl', dal: 2015, rating: 4.8, recensioni: 47, verificato: true,
+      prezzo: 145000, nuovo: 395000,
+      anno: 2018, contatore: { valore: 7400, unita: 'ore' }, condizione: 'come-nuovo',
+      pezzi: 1, ritiroFra: 40, garanzia: 12, consegna: 'accordo', smontaggio: 'incluso',
+      sintesi: 'Il socio che la usava ha aperto un laboratorio suo e ci separiamo. Poche ore, bunker e software compresi.',
       specifiche: [
-        ['Tensione tubo', '225 kV microfocus'],
+        ['Tensione tubo', '225 kV microfocus, 7.400 ore'],
         ['Pezzo max', 'Ø 300 × 400 mm, 20 kg'],
         ['Risoluzione voxel', 'da 5 µm'],
-        ['Analisi', 'Porosita\', spessori, confronto nominale/attuale'],
-        ['Output', 'Report PDF + volume VGL/STL'],
-        ['Norme', 'VDI/VDE 2630']
+        ['Cabina', 'Schermata, smontabile, compresa'],
+        ['Software', 'VGSTUDIO MAX, licenza trasferibile'],
+        ['Verifica', 'VDI/VDE 2630 superata a dicembre']
       ],
-      certificazioni: ['ISO/IEC 17025', 'ISO 9001:2015'],
-      incluso: ['Scansione', 'Elaborazione volume', 'Report sintetico'],
-      escluso: ['Analisi statistica multi-lotto', 'Perizia firmata'],
-      logistica: 'spedizione'
+      certificazioni: ['Marcatura CE', 'Verifica radioprotezione 2025'],
+      incluso: ['Cabina schermata smontabile', 'Licenza VGSTUDIO MAX', 'Postazione di elaborazione'],
+      escluso: ['Trasporto', 'Pratica di radioprotezione nella tua sede'],
+      motivo: 'scissione'
     },
     {
-      id: 'FRM-LAB-0733', cat: 'laboratorio', mod: ['affitto'],
-      titolo: 'Laboratorio microbiologico BSL-2 — 2 postazioni',
-      citta: 'Perugia', prov: 'PG', regione: 'Umbria',
-      fornitore: 'BioIncubatore Umbro', dal: 2018, rating: 4.6, recensioni: 33, verificato: true,
-      prezzo: { valore: 950, unita: 'mese' }, minimo: '1 mese', preavviso: 20,
-      oreSettimana: 55, oreLibere: 30,
-      sintesi: 'Due banchi liberi in un laboratorio condiviso. Include cappa a flusso laminare, incubatori e autoclave.',
+      id: 'FRM-LAB-0855', cat: 'laboratorio', mod: ['trattativa'],
+      titolo: 'Banco prova motori elettrici fino a 250 kW, freno rigenerativo',
+      citta: 'Ancona', prov: 'AN', regione: 'Marche',
+      venditore: 'Adriatic Power Test', dal: 2017, rating: 4.5, recensioni: 29, verificato: true,
+      prezzo: 92000, nuovo: 245000,
+      anno: 2017, contatore: { valore: 9600, unita: 'ore' }, condizione: 'ottimo',
+      pezzi: 1, ritiroFra: 35, garanzia: 6, consegna: 'accordo', smontaggio: 'incluso',
+      sintesi: 'Chiudiamo la sede di Ancona e concentriamo le prove al nord. Banco completo, acquisizione e staffaggi compresi.',
       specifiche: [
-        ['Classe', 'BSL-2 con accesso controllato'],
-        ['Postazione', 'Banco 2,4 m con cappa classe II'],
-        ['Strumenti condivisi', 'Autoclave, centrifuga refrigerata, PCR real-time'],
-        ['Stoccaggio', 'Freezer −80 °C, 1 rack per postazione'],
-        ['Rifiuti', 'Gestione sanitari inclusa'],
-        ['Accesso', '7 giorni su 7, badge nominale']
+        ['Potenza max', '250 kW'],
+        ['Coppia', '1.200 Nm fino a 6.000 giri/min'],
+        ['Freno', 'Rigenerativo in rete, quadro compreso'],
+        ['Acquisizione', '200 canali a 10 kHz, con software'],
+        ['Ore banco', '9.600'],
+        ['Staffaggi', 'Nove attrezzature specifiche comprese']
       ],
-      certificazioni: ['Notifica ASL', 'ISO 9001:2015'],
-      incluso: ['Consumabili di reparto', 'Smaltimento', 'Manutenzione strumenti'],
-      escluso: ['Reagenti', 'Personale tecnico dedicato'],
-      logistica: 'in-sede'
+      certificazioni: ['Marcatura CE', 'Taratura celle di carico 2025'],
+      incluso: ['Sistema di acquisizione e software', 'Nove staffaggi', 'Quadro di rigenerazione'],
+      escluso: ['Trasporto', 'Basamento antivibrante', 'Allacciamento in media tensione'],
+      motivo: 'chiusura-sede'
     },
     {
-      id: 'FRM-MAG-0021', cat: 'magazzino', mod: ['affitto'],
-      titolo: 'Cella frigo +2/+6 °C — 220 posti pallet',
-      citta: 'Cesena', prov: 'FC', regione: 'Emilia-Romagna',
-      fornitore: 'Ortofrutta Romagna Logistica', dal: 1996, rating: 4.7, recensioni: 91, verificato: true,
-      prezzo: { valore: 11.5, unita: 'palletmese' }, minimo: '20 pallet', preavviso: 5,
-      oreSettimana: 168, oreLibere: 74,
-      sintesi: 'Fuori dalla stagione della frutta estiva restano vuoti 220 posti su 600. Contratti anche mensili.',
+      id: 'FRM-MAG-0704', cat: 'magazzino', mod: ['fisso'],
+      titolo: 'Scaffalatura portapallet 480 posti — smontata e pallettizzata',
+      citta: 'Novara', prov: 'NO', regione: 'Piemonte',
+      venditore: 'Cartotecnica del Ticino spa', dal: 1985, rating: 4.3, recensioni: 18, verificato: true,
+      prezzo: 7400, nuovo: 27000,
+      anno: 2016, contatore: null, condizione: 'buono',
+      pezzi: 1, ritiroFra: 0, garanzia: 0, consegna: 'ritiro', smontaggio: 'gia-smontato',
+      sintesi: 'Liberata dopo il trasloco nel nuovo sito. Già smontata e pronta al carico, con la relazione di calcolo originale.',
       specifiche: [
-        ['Temperatura', '+2 ÷ +6 °C, registrata h24'],
-        ['Posti pallet liberi', '220 su 600'],
-        ['Altezza utile', '9,5 m — scaffalatura portapallet'],
-        ['Baie di carico', '4 con livellatori e tunnel coibentati'],
-        ['Gruppo elettrogeno', 'Si\', autonomia 36 ore'],
-        ['Gestionale', 'WMS con accesso cliente in sola lettura']
+        ['Posti pallet', '480 su 4 livelli'],
+        ['Spalle', '80 pezzi, h 7.500 mm'],
+        ['Correnti', '960 pezzi, luce 2.700 mm'],
+        ['Portata', '2.400 kg per coppia di correnti'],
+        ['Marca', 'Modulblok, installazione 2016'],
+        ['Stato', 'Buono, sei correnti da sostituire (segnalate)']
       ],
-      certificazioni: ['HACCP', 'IFS Logistics', 'BIO'],
-      incluso: ['Carico/scarico', 'Monitoraggio temperature', 'Inventario mensile'],
-      escluso: ['Picking a collo', 'Etichettatura'],
-      logistica: 'in-sede'
+      certificazioni: ['Relazione di calcolo originale', 'Dichiarazione di conformità'],
+      incluso: ['Relazione di calcolo', 'Piani di carico', 'Bancali di trasporto'],
+      escluso: ['Trasporto', 'Montaggio', 'Nuovo collaudo'],
+      motivo: 'trasloco'
     },
     {
-      id: 'FRM-MAG-0304', cat: 'magazzino', mod: ['affitto'],
-      titolo: 'Capannone logistico 1.400 m² con ufficio',
-      citta: 'Piacenza', prov: 'PC', regione: 'Emilia-Romagna',
-      fornitore: 'Immobiliare Val Trebbia', dal: 2005, rating: 4.2, recensioni: 24, verificato: false,
-      prezzo: { valore: 4.2, unita: 'm3mese' }, minimo: '3 mesi', preavviso: 14,
-      oreSettimana: 168, oreLibere: 168,
-      sintesi: 'Porzione di capannone sfitta da otto mesi, divisibile. A 900 m dal casello A21.',
-      specifiche: [
-        ['Superficie', '1.400 m² divisibili da 400 m²'],
-        ['Altezza sottotrave', '8 m'],
-        ['Portata pavimento', '5 t/m²'],
-        ['Accessi', '2 ribalte + 1 portone carrabile'],
-        ['Uffici', '90 m² climatizzati'],
-        ['Piazzale', '1.200 m² con manovra bilico']
-      ],
-      certificazioni: ['CPI vigente', 'APE classe C'],
-      incluso: ['Spese condominiali', 'Vigilanza notturna', 'Parcheggio'],
-      escluso: ['Utenze', 'Scaffalature'],
-      logistica: 'in-sede'
-    },
-    {
-      id: 'FRM-MAG-0588', cat: 'magazzino', mod: ['affitto'],
-      titolo: 'Deposito doganale e fiscale — 80 pallet',
+      id: 'FRM-MAG-0021', cat: 'magazzino', mod: ['trattativa'],
+      titolo: 'Cella frigo modulare +2/+6 °C, 180 m³ — smontabile',
       citta: 'Genova', prov: 'GE', regione: 'Liguria',
-      fornitore: 'Spedizionieri Riuniti Porto Vecchio', dal: 1979, rating: 4.8, recensioni: 143, verificato: true,
-      prezzo: { valore: 19, unita: 'palletmese' }, minimo: '10 pallet', preavviso: 7,
-      oreSettimana: 130, oreLibere: 41,
-      sintesi: 'Sospensione dei dazi finche\' la merce resta in deposito. Utile a chi importa e rivende su piu\' mercati.',
+      venditore: 'Frigoriferi del Porto srl', dal: 1979, rating: 4.8, recensioni: 143, verificato: true,
+      prezzo: 12500, nuovo: 46000,
+      anno: 2015, contatore: { valore: 42000, unita: 'ore' }, condizione: 'buono',
+      pezzi: 1, ritiroFra: 25, garanzia: 3, consegna: 'ritiro', smontaggio: 'venditore',
+      sintesi: 'Ridisegniamo il magazzino e questa cella esce. Pannelli in buono stato, gruppo frigo revisionato l\'anno scorso.',
       specifiche: [
-        ['Regime', 'Deposito doganale tipo C + deposito IVA'],
-        ['Posti liberi', '80 pallet'],
-        ['Distanza dal terminal', '2,4 km'],
-        ['Servizi', 'Sdoganamento, bollettazione, controllo qualita\''],
-        ['Videosorveglianza', 'h24 con registrazione 30 giorni'],
-        ['Assicurazione merci', 'Fino a 250.000 € inclusa']
+        ['Volume', '180 m³ — 10 × 6 × 3 m'],
+        ['Temperatura', '+2 ÷ +6 °C'],
+        ['Pannelli', 'Poliuretano 100 mm, aggancio a camma'],
+        ['Gruppo frigo', 'Revisionato 2025, gas R449A'],
+        ['Porte', 'Una scorrevole 1,8 m e una pedonale'],
+        ['Ore gruppo', '42.000']
       ],
-      certificazioni: ['AEO-F', 'ISO 9001:2015'],
-      incluso: ['Pratiche doganali standard', 'Assicurazione base', 'Reportistica'],
-      escluso: ['Dazi e IVA', 'Perizie merceologiche'],
-      logistica: 'in-sede'
+      certificazioni: ['Marcatura CE', 'Libretto impianto F-gas aggiornato'],
+      incluso: ['Gruppo frigo e evaporatori', 'Porte e ferramenta', 'Registratore di temperatura'],
+      escluso: ['Trasporto', 'Rimontaggio', 'Carica gas dopo lo spostamento'],
+      motivo: 'riorganizzazione'
     },
     {
-      id: 'FRM-VEI-0092', cat: 'veicoli', mod: ['affitto'],
-      titolo: 'Furgone frigo 3,5 t con doppia temperatura',
-      citta: 'Bari', prov: 'BA', regione: 'Puglia',
-      fornitore: 'Trasporti Adriatici Cotugno', dal: 2010, rating: 4.5, recensioni: 118, verificato: true,
-      prezzo: { valore: 135, unita: 'giorno' }, minimo: '1 giorno', preavviso: 2,
-      oreSettimana: 60, oreLibere: 32,
-      sintesi: 'Ferma il martedi e il giovedi tra due giri fissi. Con o senza autista.',
+      id: 'FRM-MAG-0777', cat: 'magazzino', mod: ['trattativa'],
+      titolo: 'Due silos in acciaio da 60 m³ con coclee di scarico',
+      citta: 'Foggia', prov: 'FG', regione: 'Puglia',
+      venditore: 'Molini del Tavoliere', dal: 1971, rating: 4.7, recensioni: 38, verificato: true,
+      prezzo: 18500, nuovo: 62000,
+      anno: 2011, contatore: null, condizione: 'buono',
+      pezzi: 2, ritiroFra: 60, garanzia: 0, consegna: 'ritiro', smontaggio: 'venditore',
+      sintesi: 'Sostituiti da un impianto più grande dopo il raccolto. Si smontano a settembre, quando le celle sono vuote.',
       specifiche: [
-        ['Portata utile', '1.150 kg'],
+        ['Capienza', '60 m³ l\'uno, 120 m³ in totale'],
+        ['Materiale', 'Acciaio zincato, fondo conico'],
+        ['Coclee', 'Due da 30 t/h, comprese'],
+        ['Altezza', '9,2 m con scala e piattaforma'],
+        ['Prodotti stoccati', 'Solo cereali e sfarinati'],
+        ['Stato', 'Zincatura integra, tenuta verificata']
+      ],
+      certificazioni: ['Dichiarazione di conformità', 'Relazione di calcolo strutturale'],
+      incluso: ['Coclee di scarico', 'Scala e piattaforma', 'Relazione strutturale'],
+      escluso: ['Smontaggio prima di settembre', 'Trasporto eccezionale', 'Fondazioni'],
+      motivo: 'sostituzione'
+    },
+    {
+      id: 'FRM-VEI-0092', cat: 'veicoli', mod: ['fisso', 'trattativa'],
+      titolo: 'Furgone frigo 3,5 t con doppia temperatura e sponda',
+      citta: 'Bari', prov: 'BA', regione: 'Puglia',
+      venditore: 'Trasporti Adriatici Cotugno', dal: 2010, rating: 4.5, recensioni: 118, verificato: true,
+      prezzo: 21500, nuovo: 54000,
+      anno: 2019, contatore: { valore: 148000, unita: 'km' }, condizione: 'buono',
+      pezzi: 1, ritiroFra: 5, garanzia: 3, consegna: 'ritiro', smontaggio: 'gia-smontato',
+      sintesi: 'Rinnoviamo la flotta con mezzi elettrici e i diesel escono uno alla volta. Tagliandi in concessionaria, libretto completo.',
+      specifiche: [
+        ['Immatricolazione', 'Marzo 2019, Euro 6d'],
+        ['Chilometri', '148.000 certificati'],
         ['Vano', '3,7 × 1,8 × 1,9 m, 12 m³'],
         ['Temperature', '+4 °C / −18 °C a doppio scomparto'],
-        ['Sponda', 'Idraulica 750 kg'],
-        ['Telematica', 'GPS e registratore temperature'],
-        ['Km inclusi', '150 km/giorno, poi 0,28 €/km']
+        ['Sponda', 'Idraulica 750 kg, verifica 2025'],
+        ['Manutenzione', 'Tagliandi ufficiali, ultimo a 143.000 km']
       ],
-      certificazioni: ['ATP in corso di validita\'', 'HACCP trasporto'],
-      incluso: ['Assicurazione kasko con franchigia 800 €', 'Manutenzione', 'Telepass'],
-      escluso: ['Carburante', 'Autista (+180 €/giorno)'],
-      logistica: 'ritiro'
+      certificazioni: ['ATP valida fino al 2027', 'Revisione fino al 2027'],
+      incluso: ['Passaggio di proprietà a nostro carico', 'Set gomme invernali', 'Registratore di temperatura'],
+      escluso: ['Trasporto (si guida via)', 'Assicurazione'],
+      motivo: 'rinnovo-flotta'
     },
     {
-      id: 'FRM-VEI-0447', cat: 'veicoli', mod: ['affitto', 'servizio'],
-      titolo: 'Motrice con gru 15 tm e cassone ribaltabile',
+      id: 'FRM-VEI-0447', cat: 'veicoli', mod: ['trattativa'],
+      titolo: 'Motrice 18 t con gru 15 tm e cassone ribaltabile',
       citta: 'Verona', prov: 'VR', regione: 'Veneto',
-      fornitore: 'Autotrasporti Scaligeri', dal: 1992, rating: 4.6, recensioni: 76, verificato: true,
-      prezzo: { valore: 340, unita: 'giorno' }, minimo: '1 giorno', preavviso: 4,
-      oreSettimana: 50, oreLibere: 18,
-      sintesi: 'Mezzo scarico nelle settimane in cui il cantiere principale e\' fermo per approvvigionamenti.',
+      venditore: 'Autotrasporti Scaligeri', dal: 1992, rating: 4.6, recensioni: 76, verificato: true,
+      prezzo: 58000, nuovo: 165000,
+      anno: 2015, contatore: { valore: 410000, unita: 'km' }, condizione: 'buono',
+      pezzi: 1, ritiroFra: 10, garanzia: 3, consegna: 'ritiro', smontaggio: 'gia-smontato',
+      sintesi: 'Il cantiere che la teneva impegnata è finito e non ne apriamo altri. Gru con verifica annuale fatta a maggio.',
       specifiche: [
         ['Massa complessiva', '18 t'],
-        ['Portata utile', '9,2 t'],
-        ['Gru', 'Palfinger 15 tm, sbraccio 12 m'],
+        ['Chilometri', '410.000'],
+        ['Gru', 'Palfinger 15 tm, sbraccio 12 m, verifica 05/2025'],
         ['Cassone', 'Ribaltabile trilaterale 6,2 m'],
         ['Emissioni', 'Euro 6, accesso ZTL merci'],
-        ['Autista', 'Incluso nella tariffa giornaliera']
+        ['Manutenzione', 'Officina autorizzata, storico completo']
       ],
-      certificazioni: ['Verifica gru annuale', 'ISO 39001'],
-      incluso: ['Autista 8 ore', 'Assicurazione merci 50.000 €', 'Imbracature'],
-      escluso: ['Ore eccedenti (42 €/h)', 'Pedaggi fuori regione'],
-      logistica: 'ritiro'
+      certificazioni: ['Verifica periodica gru 2025', 'Revisione fino al 2026'],
+      incluso: ['Imbracature e bilancino', 'Passaggio di proprietà', 'Storico manutenzioni'],
+      escluso: ['Trasporto', 'Sostituzione pneumatici posteriori'],
+      motivo: 'fine-cantiere'
     },
     {
-      id: 'FRM-VEI-0655', cat: 'veicoli', mod: ['vendita'],
-      titolo: 'Flotta di 4 furgoni compatti Euro 6 — 2019',
+      id: 'FRM-VEI-0655', cat: 'veicoli', mod: ['fisso'],
+      titolo: 'Lotto di 4 furgoni compatti Euro 6 — 2019',
       citta: 'Palermo', prov: 'PA', regione: 'Sicilia',
-      fornitore: 'Servizi Ambientali Conca d\'Oro', dal: 2003, rating: 4.0, recensioni: 19, verificato: false,
-      prezzo: { valore: 9800, unita: 'corpo' }, minimo: 'lotto da 4', preavviso: 10,
-      oreSettimana: 0, oreLibere: 0,
-      sintesi: 'Rinnovo flotta a fine anno: cediamo in blocco quattro mezzi con tagliandi regolari.',
+      venditore: 'Servizi Ambientali Conca d\'Oro', dal: 2003, rating: 4.0, recensioni: 19, verificato: false,
+      prezzo: 34500, nuovo: 96000,
+      anno: 2019, contatore: { valore: 134000, unita: 'km' }, condizione: 'buono',
+      pezzi: 4, ritiroFra: 30, garanzia: 0, consegna: 'ritiro', smontaggio: 'gia-smontato',
+      sintesi: 'Rinnovo flotta a fine anno: quattro mezzi con tagliandi regolari, si vendono in blocco. Chilometri da 118.000 a 149.000.',
       specifiche: [
-        ['Anno', '2019, prima immatricolazione marzo'],
-        ['Chilometraggio', 'da 118.000 a 149.000 km'],
+        ['Mezzi', '4 unità, prima immatricolazione marzo 2019'],
+        ['Chilometraggio', 'da 118.000 a 149.000 km, media 134.000'],
         ['Motore', '1.5 diesel 102 CV Euro 6d'],
-        ['Vano', '3,3 m³'],
-        ['Manutenzione', 'Tagliandi ufficiali, libretto completo'],
-        ['Prezzo', 'per singolo mezzo, sconto 8 % sul lotto']
+        ['Vano', '3,3 m³ ciascuno'],
+        ['Manutenzione', 'Tagliandi ufficiali, libretti completi'],
+        ['Prezzo', 'Riferito al lotto — 8.625 € a mezzo']
       ],
-      certificazioni: ['Revisione valida fino a 2027'],
-      incluso: ['Passaggio di proprieta\' a nostro carico', 'Set gomme invernali'],
-      escluso: ['Trasporto', 'Garanzia meccanica'],
-      logistica: 'ritiro'
+      certificazioni: ['Revisione valida fino al 2027'],
+      incluso: ['Passaggi di proprietà a nostro carico', 'Quattro set di gomme invernali'],
+      escluso: ['Trasporto', 'Garanzia meccanica', 'Vendita di un singolo mezzo'],
+      motivo: 'rinnovo-flotta'
     },
     {
-      id: 'FRM-MOV-0138', cat: 'movimentazione', mod: ['affitto'],
+      id: 'FRM-VEI-0808', cat: 'veicoli', mod: ['asta'],
+      titolo: 'Semirimorchio centinato 13,6 m — 33 pallet',
+      citta: 'Caserta', prov: 'CE', regione: 'Campania',
+      venditore: 'Trasporti Volturno', dal: 2006, rating: 4.4, recensioni: 84, verificato: true,
+      prezzo: 14500, nuovo: 42000,
+      anno: 2012, contatore: null, condizione: 'buono',
+      pezzi: 1, ritiroFra: 4, garanzia: 0, consegna: 'ritiro', smontaggio: 'gia-smontato',
+      asta: { base: 7800, rilancio: 200, scadeFra: 5, offerte: 11 },
+      sintesi: 'Ridimensioniamo la flotta e mettiamo all\'asta due semirimorchi: questo è il primo. Telaio sano, centine rifatte nel 2023.',
+      specifiche: [
+        ['Portata utile', '28 t'],
+        ['Lunghezza', '13,6 m, 33 pallet'],
+        ['Sponde', 'Apertura laterale totale e posteriore'],
+        ['Centine', 'Rifatte nel 2023'],
+        ['Freni', 'EBS, pastiglie nuove'],
+        ['Revisione', 'Valida fino a ottobre 2026']
+      ],
+      certificazioni: ['Revisione fino al 2026'],
+      incluso: ['Cinghie e barre di sponda', 'Ruota di scorta', 'Passaggio di proprietà'],
+      escluso: ['Trasporto', 'Trattore stradale'],
+      motivo: 'ridimensionamento'
+    },
+    {
+      id: 'FRM-MOV-0138', cat: 'movimentazione', mod: ['fisso', 'trattativa'],
       titolo: 'Carrello elevatore elettrico 2,5 t con batteria al litio',
-      citta: 'Bergamo', prov: 'BG', regione: 'Lombardia',
-      fornitore: 'Logistica Serio srl', dal: 2013, rating: 4.4, recensioni: 55, verificato: true,
-      prezzo: { valore: 310, unita: 'settimana' }, minimo: '1 settimana', preavviso: 3,
-      oreSettimana: 45, oreLibere: 29,
-      sintesi: 'Mezzo di scorta che usiamo solo nei picchi. Consegna e ritiro entro 40 km inclusi.',
+      citta: 'Perugia', prov: 'PG', regione: 'Umbria',
+      venditore: 'Logistica Umbra srl', dal: 2013, rating: 4.4, recensioni: 55, verificato: true,
+      prezzo: 18900, nuovo: 44000,
+      anno: 2021, contatore: { valore: 2400, unita: 'ore' }, condizione: 'come-nuovo',
+      pezzi: 1, ritiroFra: 2, garanzia: 6, consegna: 'inclusa', smontaggio: 'gia-smontato',
+      sintesi: 'Comprato per un picco che non si è ripetuto: 2.400 ore in quattro anni. Batteria al litio con la sua garanzia residua.',
       specifiche: [
         ['Portata', '2.500 kg a 500 mm'],
         ['Sollevamento', '4.700 mm, montante triplex'],
-        ['Alimentazione', 'Litio 48 V, ricarica rapida 1 h'],
-        ['Autonomia', '7-8 ore di lavoro continuo'],
-        ['Accessori', 'Traslatore, quarta via idraulica'],
-        ['Uso', 'Interno ed esterno su pavimentazione']
+        ['Batteria', 'Litio 48 V, 2.400 ore, garanzia fino al 2027'],
+        ['Ricarica', 'Caricabatterie rapido compreso'],
+        ['Accessori', 'Traslatore e quarta via idraulica'],
+        ['Verifica', 'INAIL valida fino al 2027']
       ],
-      certificazioni: ['Verifica periodica INAIL 2026', 'Marcatura CE'],
-      incluso: ['Consegna e ritiro entro 40 km', 'Manutenzione ordinaria', 'Caricabatterie'],
-      escluso: ['Operatore', 'Danni da uso improprio'],
-      logistica: 'ritiro'
+      certificazioni: ['Marcatura CE', 'Verifica periodica INAIL 2027'],
+      incluso: ['Caricabatterie rapido', 'Traslatore e quarta via', 'Consegna entro 300 km'],
+      escluso: ['Forche speciali', 'Formazione operatori'],
+      motivo: 'sovradimensionamento'
     },
     {
-      id: 'FRM-MOV-0392', cat: 'movimentazione', mod: ['affitto'],
+      id: 'FRM-MOV-0392', cat: 'movimentazione', mod: ['trattativa'],
       titolo: 'Piattaforma aerea articolata 20 m fuoristrada',
       citta: 'Firenze', prov: 'FI', regione: 'Toscana',
-      fornitore: 'Noleggi Arno Attrezzature', dal: 2008, rating: 4.7, recensioni: 129, verificato: true,
-      prezzo: { valore: 195, unita: 'giorno' }, minimo: '2 giorni', preavviso: 3,
-      oreSettimana: 45, oreLibere: 22,
-      sintesi: 'Disponibile nelle settimane pari, quando il cantiere di riferimento e\' fermo per collaudi.',
+      venditore: 'Noleggi Arno Attrezzature', dal: 2008, rating: 4.7, recensioni: 129, verificato: true,
+      prezzo: 27500, nuovo: 78000,
+      anno: 2016, contatore: { valore: 4100, unita: 'ore' }, condizione: 'buono',
+      pezzi: 1, ritiroFra: 6, garanzia: 3, consegna: 'accordo', smontaggio: 'gia-smontato',
+      sintesi: 'Rinnoviamo il parco noleggio e le macchine oltre gli otto anni escono. Verifica INAIL fatta, libretto in regola.',
       specifiche: [
         ['Altezza di lavoro', '20,1 m'],
         ['Sbraccio', '9,7 m'],
         ['Portata cestello', '230 kg (2 persone)'],
         ['Trazione', '4×4 diesel con stabilizzatori automatici'],
-        ['Rotazione', '360° continua'],
-        ['Peso', '6.900 kg — trasporto con carrellone']
+        ['Ore motore', '4.100'],
+        ['Verifica', 'INAIL valida fino al 2027']
       ],
-      certificazioni: ['Verifica periodica INAIL 2026', 'Marcatura CE'],
-      incluso: ['Imbracature', 'Libretto verifiche', 'Assistenza telefonica'],
-      escluso: ['Trasporto (180 € a tratta)', 'Operatore abilitato'],
-      logistica: 'ritiro'
-    },
-    {
-      id: 'FRM-MOV-0704', cat: 'movimentazione', mod: ['vendita'],
-      titolo: 'Scaffalatura portapallet 480 posti — smontata',
-      citta: 'Novara', prov: 'NO', regione: 'Piemonte',
-      fornitore: 'Cartotecnica del Ticino spa', dal: 1985, rating: 4.3, recensioni: 8, verificato: true,
-      prezzo: { valore: 7400, unita: 'corpo' }, minimo: 'lotto intero', preavviso: 12,
-      oreSettimana: 0, oreLibere: 0,
-      sintesi: 'Liberata dopo il trasloco in un nuovo sito. Gia\' smontata, pallettizzata e pronta al carico.',
-      specifiche: [
-        ['Posti pallet', '480 (4 livelli)'],
-        ['Spalle', '80 pezzi h 7.500 mm'],
-        ['Correnti', '960 pezzi, luce 2.700 mm'],
-        ['Portata', '2.400 kg per coppia di correnti'],
-        ['Marca', 'Modulblok, installazione 2016'],
-        ['Stato', 'Buono, con relazione di calcolo originale']
-      ],
-      certificazioni: ['Relazione di calcolo', 'Dichiarazione di conformita\''],
-      incluso: ['Relazione di calcolo', 'Piani di carico', 'Bancali di trasporto'],
-      escluso: ['Trasporto', 'Montaggio', 'IVA'],
-      logistica: 'ritiro'
-    },
-    {
-      id: 'FRM-CNC-0577', cat: 'cnc', mod: ['servizio'],
-      titolo: 'Rettifica in tondo CNC per alberi fino a 800 mm',
-      citta: 'Reggio Emilia', prov: 'RE', regione: 'Emilia-Romagna',
-      fornitore: 'Rettifiche Padane', dal: 1990, rating: 4.8, recensioni: 97, verificato: true,
-      prezzo: { valore: 64, unita: 'ora' }, minimo: '2 ore', preavviso: 5,
-      oreSettimana: 80, oreLibere: 23,
-      sintesi: 'Reparto scarico al mattino presto. Lavoriamo anche pezzi singoli di manutenzione e ricambi urgenti.',
-      specifiche: [
-        ['Distanza tra le punte', '800 mm'],
-        ['Diametro max', 'Ø 320 mm'],
-        ['Tolleranza tipica', 'IT4, rugosita\' Ra 0,2'],
-        ['Mola', 'CBN con equilibratura automatica'],
-        ['Misura in macchina', 'Marposs in-process'],
-        ['Trattamenti collegati', 'Tempra a induzione presso terzista']
-      ],
-      certificazioni: ['ISO 9001:2015'],
-      incluso: ['Controllo dimensionale', 'Protettivo antiruggine', 'Imballo'],
-      escluso: ['Trattamenti termici', 'Certificato 3.1'],
-      logistica: 'spedizione'
-    },
-    {
-      id: 'FRM-LAB-0855', cat: 'laboratorio', mod: ['servizio'],
-      titolo: 'Banco prova motori elettrici fino a 250 kW',
-      citta: 'Ancona', prov: 'AN', regione: 'Marche',
-      fornitore: 'Adriatic Power Test', dal: 2017, rating: 4.5, recensioni: 29, verificato: true,
-      prezzo: { valore: 780, unita: 'giorno' }, minimo: '1 giorno', preavviso: 9,
-      oreSettimana: 45, oreLibere: 20,
-      sintesi: 'Banco a freno rigenerativo. Vendiamo le giornate residue tra una campagna di prove e l\'altra.',
-      specifiche: [
-        ['Potenza max', '250 kW'],
-        ['Coppia', '1.200 Nm fino a 6.000 giri/min'],
-        ['Freno', 'Rigenerativo in rete'],
-        ['Acquisizione', '200 canali, 10 kHz'],
-        ['Prove', 'Rendimento, mappe, endurance, derating termico'],
-        ['Norme', 'IEC 60034-2-1']
-      ],
-      certificazioni: ['ISO 9001:2015'],
-      incluso: ['Tecnico di banco', 'Acquisizione dati', 'Report grezzo'],
-      escluso: ['Staffaggi dedicati', 'Elaborazione statistica'],
-      logistica: 'spedizione'
-    },
-    {
-      id: 'FRM-OFF-0666', cat: 'officina', mod: ['affitto'],
-      titolo: 'Reparto sartoriale industriale — 6 macchine',
-      citta: 'Carpi', prov: 'MO', regione: 'Emilia-Romagna',
-      fornitore: 'Confezioni Emilia snc', dal: 1999, rating: 4.6, recensioni: 51, verificato: true,
-      prezzo: { valore: 620, unita: 'mese' }, minimo: '2 mesi', preavviso: 10,
-      oreSettimana: 45, oreLibere: 27,
-      sintesi: 'Sei postazioni ferme dopo il calo degli ordini. Adatte a piccole produzioni e campionari.',
-      specifiche: [
-        ['Macchine', '2 lineari, 2 taglia-cuci, 1 ricopritura, 1 travetta'],
-        ['Taglio', 'Tavolo 6 m con taglierina verticale'],
-        ['Stiro', 'Caldaia industriale con 2 ferri'],
-        ['Postazioni', '6, illuminazione dedicata'],
-        ['Accesso', 'Lun-ven 6:00-22:00'],
-        ['Extra', 'Modellista disponibile a ore']
-      ],
-      certificazioni: ['ISO 9001:2015'],
-      incluso: ['Manutenzione macchine', 'Energia', 'Magazzino 20 m²'],
-      escluso: ['Filati e tessuti', 'Personale'],
-      logistica: 'in-sede'
-    },
-    {
-      id: 'FRM-MAG-0777', cat: 'magazzino', mod: ['affitto'],
-      titolo: 'Silos e stoccaggio sfusi alimentari — 3 celle',
-      citta: 'Foggia', prov: 'FG', regione: 'Puglia',
-      fornitore: 'Molini del Tavoliere', dal: 1971, rating: 4.7, recensioni: 38, verificato: true,
-      prezzo: { valore: 3.1, unita: 'm3mese' }, minimo: '50 m³', preavviso: 12,
-      oreSettimana: 168, oreLibere: 96,
-      sintesi: 'Capacita\' di stoccaggio libera tra un raccolto e l\'altro, con movimentazione pneumatica inclusa.',
-      specifiche: [
-        ['Celle disponibili', '3 da 400 m³'],
-        ['Prodotti ammessi', 'Cereali, sfarinati, legumi secchi'],
-        ['Movimentazione', 'Pneumatica 30 t/h'],
-        ['Controllo', 'Termometria a sonde, aerazione forzata'],
-        ['Pesatura', 'Pesa a ponte 60 t certificata'],
-        ['Analisi', 'Laboratorio interno per umidita\' e proteine']
-      ],
-      certificazioni: ['HACCP', 'ISO 22000', 'GMP+'],
-      incluso: ['Carico e scarico', 'Termometria', 'Analisi in ingresso'],
-      escluso: ['Trattamenti antiparassitari', 'Insacco'],
-      logistica: 'in-sede'
-    },
-    {
-      id: 'FRM-VEI-0808', cat: 'veicoli', mod: ['affitto'],
-      titolo: 'Bilico centinato con autista — tratte Nord-Sud',
-      citta: 'Caserta', prov: 'CE', regione: 'Campania',
-      fornitore: 'Trasporti Volturno', dal: 2006, rating: 4.4, recensioni: 84, verificato: true,
-      prezzo: { valore: 1.35, unita: 'km' }, minimo: '250 km', preavviso: 3,
-      oreSettimana: 70, oreLibere: 25,
-      sintesi: 'Vendiamo i viaggi di ritorno a vuoto: se la tua tratta coincide, il prezzo scende di un terzo.',
-      specifiche: [
-        ['Portata utile', '28 t'],
-        ['Semirimorchio', 'Centinato 13,6 m, 33 pallet'],
-        ['Sponde', 'Apertura laterale totale e posteriore'],
-        ['Tracciamento', 'GPS con accesso cliente'],
-        ['Tratte scoperte', 'Rientri da Lombardia e Veneto'],
-        ['Assicurazione', 'CMR fino a 150.000 €']
-      ],
-      certificazioni: ['ISO 39001', 'Albo autotrasportatori'],
-      incluso: ['Autista', 'Pedaggi', 'Assicurazione CMR'],
-      escluso: ['Facchinaggio', 'Soste oltre 2 ore'],
-      logistica: 'ritiro'
-    },
-    {
-      id: 'FRM-ADD-0931', cat: 'additivo', mod: ['affitto'],
-      titolo: 'Stereolitografia resine tecniche — 3 macchine',
-      citta: 'Milano', prov: 'MI', regione: 'Lombardia',
-      fornitore: 'Prototipi Lambrate', dal: 2020, rating: 4.5, recensioni: 112, verificato: true,
-      prezzo: { valore: 55, unita: 'giorno' }, minimo: '1 giorno', preavviso: 1,
-      oreSettimana: 168, oreLibere: 71,
-      sintesi: 'Tre macchine SLA in una stanza dedicata, prenotabili anche per una notte sola.',
-      specifiche: [
-        ['Volume', '192 × 120 × 245 mm per macchina'],
-        ['Risoluzione XY', '50 µm'],
-        ['Resine', 'Tough, High Temp, Flexible, Dental'],
-        ['Post-processo', 'Lavaggio e polimerizzazione inclusi'],
-        ['Software', 'PreForm su postazione locale o remota'],
-        ['Prezzo indicato', 'per macchina/giorno, resina esclusa']
-      ],
-      certificazioni: [],
-      incluso: ['Lavaggio e cura', 'Serbatoi e piattaforme', 'Alcol isopropilico'],
-      escluso: ['Resina (da 89 €/l)', 'Supporti rimossi a mano'],
-      logistica: 'spedizione'
+      certificazioni: ['Marcatura CE', 'Verifica periodica INAIL 2027'],
+      incluso: ['Imbracature', 'Libretto verifiche completo', 'Set ricambi filtri'],
+      escluso: ['Trasporto con carrellone', 'Formazione PLE'],
+      motivo: 'rinnovo-parco'
     }
   ];
 
-  /* --- Coordinate reali delle citta' a catalogo ---------------------------
-     Servono al quadro sinottico del catalogo: i punti sono le sedi vere,
-     proiettate in equirettangolare. La sagoma che si vede e' formata dalle
-     sedi stesse, non da un contorno disegnato a mano.                        */
+  /* --- Coordinate reali delle citta' a listino ----------------------------
+     Servono al quadro delle sedi: i punti sono i luoghi dove il ferro sta
+     davvero, proiettati in equirettangolare. La sagoma che si vede e' formata
+     dalle sedi stesse, non da un contorno disegnato a mano.                  */
   var COORD = {
     'Ancona': [43.62, 13.51],        'Bari': [41.12, 16.87],
     'Bergamo': [45.70, 9.67],        'Bologna': [44.49, 11.34],
@@ -704,8 +766,32 @@
   };
   function coord(citta) { return COORD[citta] || null; }
 
+  /* --- Perche' si vende ---------------------------------------------------
+     La ragione della vendita conta quanto la scheda tecnica: dice se stai
+     comprando un problema o un cambio di programma. */
+  var MOTIVI = {
+    'sostituzione':       'Sostituita da una macchina nuova',
+    'fine-commessa':      'Finita la commessa che la teneva occupata',
+    'cambio-produzione':  'Cambio di produzione',
+    'cambio-tecnologia':  'Cambio di tecnologia',
+    'accorpamento':       'Accorpamento di due reparti',
+    'cessazione-ramo':    'Chiusura di un ramo d\'attività',
+    'dismissione-reparto':'Dismissione del reparto',
+    'liquidazione':       'Liquidazione dell\'azienda',
+    'pensionamento':      'Pensionamento di chi la usava',
+    'trasloco':           'Trasloco in un altro capannone',
+    'calo-ordini':        'Calo degli ordini',
+    'chiusura-sede':      'Chiusura della sede',
+    'scissione':          'Scissione societaria',
+    'riorganizzazione':   'Riorganizzazione del magazzino',
+    'rinnovo-flotta':     'Rinnovo della flotta',
+    'rinnovo-parco':      'Rinnovo del parco noleggio',
+    'ridimensionamento':  'Ridimensionamento della flotta',
+    'sovradimensionamento': 'Comprata più grande del necessario'
+  };
+
   /* --- Recensioni ---------------------------------------------------------
-     Generate dall'ID: coerenti col voto dichiarato e con la modalita'.       */
+     Generate dall'ID: coerenti col voto dichiarato del venditore.            */
   var AUTORI = [
     'Studio Tecnico Ferrari', 'Nautica Sanremo srl', 'Prototipi Bianchi',
     'Elettromeccanica Ionica', 'Design Lab Milano', 'Impianti Rossi & C.',
@@ -714,21 +800,21 @@
   ];
   var GIUDIZI = {
     alto: [
-      'Consegna nei tempi dichiarati e pezzi in tolleranza al primo colpo. Ripeteremo.',
-      'Ci hanno risposto in tre ore e ci hanno salvato una commessa che stava slittando.',
-      'Macchina in ordine, reparto pulito, referente competente. Zero sorprese in fattura.',
-      'Abbiamo mandato un file discutibile e ci hanno richiamato per correggerlo prima di partire.',
-      'Preventivo rispettato al centesimo. Per noi che lavoriamo su lotti piccoli è raro.'
+      'Macchina esattamente come descritta. Caricata in due ore, documenti tutti in ordine.',
+      'Ci hanno lasciato provare un pezzo prima di firmare. Da allora lavora tutti i giorni.',
+      'Le ore dichiarate erano quelle vere: le abbiamo verificate a controllo acceso.',
+      'Hanno segnalato loro un difetto che non avevamo visto, e scalato il prezzo di conseguenza.',
+      'Smontaggio e carico fatti da loro nei tempi promessi. Zero sorprese in fattura.'
     ],
     medio: [
-      'Lavoro corretto, un giorno oltre la data promessa ma ci hanno avvisati per tempo.',
-      'Tutto a posto sul risultato. La documentazione di accompagnamento si può migliorare.',
-      'Buon rapporto qualità prezzo. L\'imballo per la spedizione era un po\' sbrigativo.',
-      'Nessun problema tecnico. Il preavviso richiesto è più lungo di quanto speravamo.'
+      'Tutto corretto, ma il ritiro è slittato di una settimana rispetto agli accordi.',
+      'Macchina buona. La documentazione mancava di due schemi, poi recuperati.',
+      'Prezzo giusto per lo stato. Abbiamo dovuto rifare noi l\'impianto elettrico di bordo.',
+      'Venditore serio, un po\' lento a rispondere nella prima settimana.'
     ],
     basso: [
-      'Risultato accettabile ma abbiamo dovuto rifinire due pezzi su venti.',
-      'Comunicazione lenta nella prima settimana, poi il lavoro è filato via liscio.'
+      'Funziona, ma serviva più revisione di quanta ne fosse dichiarata.',
+      'Il trasporto è stato un problema nostro: nell\'annuncio poteva essere più chiaro.'
     ]
   };
 
@@ -746,8 +832,7 @@
         autore: AUTORI[Math.floor(r() * AUTORI.length)],
         voto: voto,
         testo: pool[Math.floor(r() * pool.length)],
-        quando: new Date(Date.now() - Math.floor(r() * 240 + 8 + i * 30) * 86400000),
-        modalita: asset.mod[Math.floor(r() * asset.mod.length)]
+        quando: new Date(Date.now() - Math.floor(r() * 240 + 8 + i * 30) * 86400000)
       });
     }
     return out.sort(function (a, b) { return b.quando - a.quando; });
@@ -756,44 +841,59 @@
   /* --- Derivazioni -------------------------------------------------------- */
   var GIORNI = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'];
 
-  /* Calendario deterministico: 28 giorni a partire da oggi.
-     stato: libero | parziale | occupato | chiuso                              */
+  /* Calendario deterministico delle visite in sede: 28 giorni da oggi.
+     Prima del ritiro la macchina si puo' comunque vedere, ma non portare via.
+     stato: libero | mezza | occupato | chiuso                                */
   function calendario(asset, giorni) {
-    var r = rng(asset.id + '|cal');
+    var r = rng(asset.id + '|vis');
     var oggi = new Date();
     oggi.setHours(0, 0, 0, 0);
     var out = [];
-    var saturazione = asset.oreSettimana ? 1 - asset.oreLibere / asset.oreSettimana : 1;
     for (var i = 0; i < (giorni || 28); i++) {
       var d = new Date(oggi.getTime() + i * 86400000);
-      var dow = (d.getDay() + 6) % 7; // 0 = lunedi
+      var dow = (d.getDay() + 6) % 7; /* 0 = lunedi */
       var stato;
-      if (i < asset.preavviso) {
-        stato = 'chiuso';
-      } else if (dow === 6 && asset.oreSettimana < 100) {
-        stato = 'chiuso';
+      if (i < 1) {
+        stato = 'chiuso';                       /* oggi non si organizza piu' */
+      } else if (dow >= 5) {
+        stato = 'chiuso';                       /* sabato e domenica chiuso */
       } else {
         var p = r();
-        if (p < saturazione * 0.75) stato = 'occupato';
-        else if (p < saturazione * 0.75 + 0.22) stato = 'parziale';
+        if (p < 0.22) stato = 'occupato';       /* altre visite gia' fissate */
+        else if (p < 0.45) stato = 'mezza';
         else stato = 'libero';
       }
-      out.push({ data: d, dow: dow, stato: stato, oreLibere: stato === 'libero' ? 8 : stato === 'parziale' ? 3 : 0 });
+      out.push({
+        data: d, dow: dow, stato: stato,
+        ritirabile: i >= asset.ritiroFra
+      });
     }
     return out;
   }
 
-  /* Storico ricavi per la console proprietario: 12 settimane */
-  function storicoRicavi(assetId) {
-    var r = rng(assetId + '|ric');
-    var base = 380 + r() * 900;
+  /* Visite alla scheda, ultime 12 settimane: e' il polso dell'interesse. */
+  function storicoVisite(assetId) {
+    var r = rng(assetId + '|vis12');
+    var base = 40 + r() * 120;
     var out = [];
     for (var i = 11; i >= 0; i--) {
-      var trend = 1 + (11 - i) * 0.045;
-      var rumore = 0.62 + r() * 0.8;
-      out.push(Math.round(base * trend * rumore / 10) * 10);
+      var trend = 1 + (11 - i) * 0.03;
+      var rumore = 0.55 + r() * 0.9;
+      out.push(Math.round(base * trend * rumore));
     }
     return out;
+  }
+
+  /* Quanto si muove un annuncio: visite, salvataggi, proposte, giorni a listino */
+  function interesse(assetId) {
+    var r = rng(assetId + '|int');
+    var visite = Math.round(180 + r() * 900);
+    return {
+      visite: visite,
+      salvati: Math.round(visite * (0.03 + r() * 0.05)),
+      offerte: Math.floor(r() * 6),
+      giorni: Math.round(4 + r() * 90)
+    };
   }
 
   function byId(id) {
@@ -804,10 +904,15 @@
     for (var i = 0; i < CATEGORIE.length; i++) if (CATEGORIE[i].id === id) return CATEGORIE[i];
     return { id: id, nome: id, breve: id, glifo: 'officina' };
   }
-  function modalita(id) {
-    for (var i = 0; i < MODALITA.length; i++) if (MODALITA[i].id === id) return MODALITA[i];
+  function formula(id) {
+    for (var i = 0; i < FORMULE.length; i++) if (FORMULE[i].id === id) return FORMULE[i];
     return { id: id, nome: id, sigla: '???', nota: '' };
   }
+  function condizione(id) {
+    for (var i = 0; i < CONDIZIONI.length; i++) if (CONDIZIONI[i].id === id) return CONDIZIONI[i];
+    return { id: id, nome: id, quota: 0.5, nota: '' };
+  }
+  function motivo(id) { return MOTIVI[id] || 'Non dichiarato'; }
   function citta() {
     var set = {};
     ASSET.forEach(function (a) { set[a.citta] = (set[a.citta] || 0) + 1; });
@@ -816,21 +921,27 @@
 
   global.FERMO_DATA = {
     CATEGORIE: CATEGORIE,
-    MODALITA: MODALITA,
+    FORMULE: FORMULE,
+    CONDIZIONI: CONDIZIONI,
     ASSET: ASSET,
     GIORNI: GIORNI,
     rng: rng,
     calendario: calendario,
-    storicoRicavi: storicoRicavi,
+    storicoVisite: storicoVisite,
+    interesse: interesse,
     byId: byId,
     categoria: categoria,
-    modalita: modalita,
+    formula: formula,
+    condizione: condizione,
+    motivo: motivo,
     citta: citta,
     coord: coord,
     recensioni: recensioni,
     /* Parametri commerciali della piattaforma */
-    COMMISSIONE: 0.09,
-    ASSICURAZIONE: 0.035,
+    COMMISSIONE: 0.06,   /* la trattiene la piattaforma sul venduto, al venditore */
+    PERIZIA: 290,        /* verifica tecnica indipendente prima dell'acquisto */
+    TRASPORTO: 480,      /* stima di trasporto su gomma in Italia */
+    SMONTAGGIO: 350,     /* stima di smontaggio e carico */
     IVA: 0.22
   };
 })(window);

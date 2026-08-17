@@ -3,20 +3,20 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Catalogo — FERMO</title>
-<meta name="description" content="Cerca capacità produttiva ferma: CNC, stampa 3D, taglio laser, laboratori, magazzini, furgoni e attrezzature.">
+<title>Listino — FERMO</title>
+<meta name="description" content="Cerca macchinari industriali usati: CNC, stampa 3D, taglio laser, presse, laboratori, scaffalature, veicoli e carrelli.">
 <!-- anteprima dei collegamenti -->
 <link rel="canonical" href="https://fermo-demo.onrender.com/catalogo">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="FERMO">
 <meta property="og:locale" content="it_IT">
 <meta property="og:url" content="https://fermo-demo.onrender.com/catalogo">
-<meta property="og:title" content="Catalogo — FERMO">
-<meta property="og:description" content="Cerca capacità produttiva ferma: CNC, stampa 3D, taglio laser, laboratori, magazzini, furgoni e attrezzature.">
+<meta property="og:title" content="Listino — FERMO">
+<meta property="og:description" content="Cerca macchinari industriali usati: CNC, stampa 3D, taglio laser, presse, laboratori, scaffalature, veicoli e carrelli.">
 <meta property="og:image" content="https://fermo-demo.onrender.com/assets/img/anteprima.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="FERMO — marketplace della capacita inutilizzata">
+<meta property="og:image:alt" content="FERMO — il mercato dei macchinari usati">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#191A1D" media="(prefers-color-scheme: dark)">
@@ -32,10 +32,10 @@
     <div class="pila">
 
       <form id="modulo-ricerca" role="search" class="cerca">
-        <label class="sr" for="q">Cerca nel catalogo</label>
+        <label class="sr" for="q">Cerca nel listino</label>
         <span id="icona-lente"></span>
         <input type="search" id="q" name="q" autocomplete="off"
-               placeholder="Fresa, cella frigo, laser, Brescia…">
+               placeholder="Piegatrice, tornio, muletto, Brescia…">
       </form>
 
       <div class="riga riga--stretta" style="gap:8px">
@@ -45,11 +45,12 @@
         <label class="sr" for="ordina">Ordina i risultati</label>
         <select class="chip" id="ordina">
           <option value="rilevanza">Più pertinenti</option>
-          <option value="ore">Più ore libere</option>
           <option value="prezzo-su">Prezzo crescente</option>
           <option value="prezzo-giu">Prezzo decrescente</option>
-          <option value="voto">Meglio valutati</option>
-          <option value="pronto">Disponibile prima</option>
+          <option value="recenti">Più recenti</option>
+          <option value="stato">Stato migliore</option>
+          <option value="sconto">Scarto dal nuovo</option>
+          <option value="asta">Aste in scadenza</option>
         </select>
         <button class="chip spinta" type="button" id="commuta-mappa" aria-pressed="false">
           <span id="icona-mappa"></span>Mappa
@@ -83,15 +84,15 @@
         <summary>Elenco delle sedi</summary>
         <div class="scorre" style="max-height:280px;margin-top:10px">
           <table class="tabella" id="quadro-tabella">
-            <thead><tr><th>Sede</th><th class="num">Schede</th></tr></thead>
+            <thead><tr><th>Sede</th><th class="num">Macchine</th></tr></thead>
             <tbody></tbody>
           </table>
         </div>
       </details>
       <p class="piccolo fioco" style="margin-top:12px">
-        Proiezione delle sedi reali dei fornitori: il punto cresce dove una città ha
-        più schede. Nessun contorno disegnato — la sagoma esce dalle sedi stesse,
-        e il vuoto al Sud è copertura che manca davvero.
+        Proiezione dei luoghi dove le macchine stanno davvero: il punto cresce dove una
+        città ne ha di più. Il ritiro parte da lì, quindi la distanza è un costo —
+        nessun contorno disegnato, la sagoma esce dalle sedi stesse.
       </p>
     </div>
   </section>

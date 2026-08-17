@@ -642,10 +642,10 @@ select.chip {
   overflow: hidden;
 }
 .metro__pieno { height: 100%; border-radius: var(--r-piena); background: var(--verde); }
-.metro__pieno[data-livello="basso"] { background: var(--verde); }
-.metro__pieno[data-livello="medio"] { background: var(--ambra); }
-.metro__pieno[data-livello="alto"]  { background: var(--accento); }
-.metro__pieno[data-livello="pieno"] { background: var(--rosso); }
+.metro__pieno[data-livello="ottimo"]  { background: var(--verde); }
+.metro__pieno[data-livello="buono"]   { background: var(--ambra); }
+.metro__pieno[data-livello="scarso"]  { background: var(--accento); }
+.metro__pieno[data-livello="critico"] { background: var(--rosso); }
 
 /* ------------------------------------------------------------ ELENCO BENI -- */
 .elenco-beni { display: grid; gap: 12px; }
@@ -1001,9 +1001,9 @@ select.chip {
   font-size: 14.5px;
   line-height: 1.45;
 }
-.messaggio[data-da="cliente"] { align-self: flex-end; }
-.messaggio[data-da="cliente"] .messaggio__testa { text-align: right; }
-.messaggio[data-da="cliente"] .messaggio__corpo {
+.messaggio[data-da="compratore"] { align-self: flex-end; }
+.messaggio[data-da="compratore"] .messaggio__testa { text-align: right; }
+.messaggio[data-da="compratore"] .messaggio__corpo {
   background: var(--accento-tenue);
   color: var(--testo);
 }

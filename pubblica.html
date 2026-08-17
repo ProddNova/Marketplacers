@@ -3,20 +3,20 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Pubblica capacità — FERMO</title>
-<meta name="description" content="Metti a reddito la capacità ferma: quattro passaggi, nessun canone, commissione solo sul transato.">
+<title>Metti in vendita — FERMO</title>
+<meta name="description" content="Vendi la macchina che non usi: quattro passaggi, nessun canone, commissione del 6 % solo se vendi.">
 <!-- anteprima dei collegamenti -->
 <link rel="canonical" href="https://fermo-demo.onrender.com/pubblica">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="FERMO">
 <meta property="og:locale" content="it_IT">
 <meta property="og:url" content="https://fermo-demo.onrender.com/pubblica">
-<meta property="og:title" content="Pubblica capacità — FERMO">
-<meta property="og:description" content="Metti a reddito la capacità ferma: quattro passaggi, nessun canone, commissione solo sul transato.">
+<meta property="og:title" content="Metti in vendita — FERMO">
+<meta property="og:description" content="Vendi la macchina che non usi: quattro passaggi, nessun canone, commissione del 6 % solo se vendi.">
 <meta property="og:image" content="https://fermo-demo.onrender.com/assets/img/anteprima.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="FERMO — marketplace della capacita inutilizzata">
+<meta property="og:image:alt" content="FERMO — il mercato dei macchinari usati">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#191A1D" media="(prefers-color-scheme: dark)">
@@ -29,9 +29,9 @@
 <main class="pagina pagina--azioni contenitore">
 
   <div class="sezione--stretta">
-    <h1 style="font-size:clamp(24px,6vw,32px)">Metti a reddito il fermo</h1>
+    <h1 style="font-size:clamp(24px,6vw,32px)">Vendi la macchina ferma</h1>
     <p class="tenue" style="margin-top:8px">Quattro passaggi. Nessun canone: la piattaforma
-      trattiene il 9 % solo su quello che incassi.</p>
+      trattiene il 6 % solo se la vendi davvero.</p>
   </div>
 
   <div class="passi" id="passi" aria-hidden="true">
@@ -45,7 +45,7 @@
 
     <!-- ========================================= COLONNA MODULO -->
     <div class="carta">
-      <div class="carta__testa" id="titolo-passo">Che cosa cedi</div>
+      <div class="carta__testa" id="titolo-passo">Che cosa vendi</div>
       <div class="carta__corpo">
 
         <!-- ------- passo 1 -->
@@ -60,19 +60,51 @@
             <span class="campo__aiuto">Marca, modello e la caratteristica che conta. Chi cerca legge questa riga.</span>
           </label>
           <div class="campo">
-            <span class="campo__nome">Come la cedi <span class="fioco">(anche più di una)</span></span>
+            <span class="campo__nome">Come vuoi venderla <span class="fioco">(anche più di una)</span></span>
             <div class="riga" id="f-mod" style="gap:8px"></div>
             <span class="campo__aiuto" id="nota-mod">&nbsp;</span>
           </div>
           <label class="campo">
-            <span class="campo__nome">In due righe, perché è ferma</span>
-            <textarea id="f-sintesi" maxlength="280" placeholder="Il terzo turno è scoperto da marzo: cediamo le notti e i sabati."></textarea>
+            <span class="campo__nome">Perché la vendi</span>
+            <select id="f-motivo"></select>
+            <span class="campo__aiuto">È la prima cosa che chi compra vuole sapere: dice se sta
+              comprando un cambio di programma o un problema.</span>
+          </label>
+          <label class="campo">
+            <span class="campo__nome">In due righe, la storia della macchina</span>
+            <textarea id="f-sintesi" maxlength="280" placeholder="Sostituita da un cinque assi più grande: esce dalla produzione a fine mese, con tutta l'attrezzatura."></textarea>
           </label>
         </section>
 
         <!-- ------- passo 2 -->
         <section data-sezione="2" hidden>
           <div class="griglia griglia--2">
+            <label class="campo" style="margin-top:0">
+              <span class="campo__nome">Anno di costruzione</span>
+              <input type="number" id="f-anno" min="1960" max="2026" value="2016">
+            </label>
+            <label class="campo" style="margin-top:0">
+              <span class="campo__nome">Stato</span>
+              <select id="f-condizione"></select>
+            </label>
+          </div>
+          <div class="griglia griglia--2" style="margin-top:16px">
+            <label class="campo" style="margin-top:0">
+              <span class="campo__nome">Contatore</span>
+              <input type="number" id="f-contatore" min="0" value="14000">
+              <span class="campo__aiuto">Zero se non ce l'ha.</span>
+            </label>
+            <label class="campo" style="margin-top:0">
+              <span class="campo__nome">Unità</span>
+              <select id="f-contatore-unita">
+                <option value="ore">ore</option>
+                <option value="km">chilometri</option>
+                <option value="battute">battute</option>
+                <option value="cicli">cicli</option>
+              </select>
+            </label>
+          </div>
+          <div class="griglia griglia--2" style="margin-top:16px">
             <label class="campo" style="margin-top:0">
               <span class="campo__nome">Città</span>
               <input type="text" id="f-citta" placeholder="Brescia">
@@ -84,33 +116,28 @@
           </div>
           <label class="campo">
             <span class="campo__nome">Ragione sociale</span>
-            <input type="text" id="f-fornitore" placeholder="Officina Meccanica Esempio srl">
+            <input type="text" id="f-venditore" placeholder="Officina Meccanica Esempio srl">
           </label>
           <div class="griglia griglia--2" style="margin-top:16px">
             <label class="campo" style="margin-top:0">
-              <span class="campo__nome">Ore a settimana</span>
-              <input type="number" id="f-ore-tot" min="1" max="168" value="45">
-              <span class="campo__aiuto">Quante ne potrebbe lavorare.</span>
+              <span class="campo__nome">Pezzi nel lotto</span>
+              <input type="number" id="f-pezzi" min="1" max="99" value="1">
+              <span class="campo__aiuto">Più di uno si vende in blocco.</span>
             </label>
             <label class="campo" style="margin-top:0">
-              <span class="campo__nome">Di cui ferme</span>
-              <input type="number" id="f-ore-libere" min="0" max="168" value="18">
-              <span class="campo__aiuto">Quelle che vuoi vendere.</span>
+              <span class="campo__nome">Ritirabile fra</span>
+              <select id="f-ritiro">
+                <option value="0">Subito</option>
+                <option value="7">7 giorni</option>
+                <option value="15" selected>15 giorni</option>
+                <option value="30">30 giorni</option>
+                <option value="60">60 giorni</option>
+              </select>
             </label>
           </div>
-          <label class="campo">
-            <span class="campo__nome">Preavviso necessario</span>
-            <select id="f-preavviso">
-              <option value="1">1 giorno</option>
-              <option value="2" selected>2 giorni</option>
-              <option value="5">5 giorni</option>
-              <option value="10">10 giorni</option>
-              <option value="15">15 giorni</option>
-            </select>
-          </label>
           <div class="campo">
-            <span class="campo__nome">Occupazione che ne risulta</span>
-            <div id="anteprima-saturazione"></div>
+            <span class="campo__nome">Come si legge lo stato che hai scelto</span>
+            <div id="anteprima-condizione"></div>
           </div>
         </section>
 
@@ -118,34 +145,62 @@
         <section data-sezione="3" hidden>
           <div class="griglia griglia--2">
             <label class="campo" style="margin-top:0">
-              <span class="campo__nome">Prezzo</span>
-              <input type="number" id="f-prezzo" min="0" step="0.01" value="45">
+              <span class="campo__nome">Prezzo richiesto (€)</span>
+              <input type="number" id="f-prezzo" min="0" step="100" value="45000">
+              <span class="campo__aiuto">IVA esclusa.</span>
             </label>
             <label class="campo" style="margin-top:0">
-              <span class="campo__nome">Unità</span>
-              <select id="f-unita">
-                <option value="ora">a ora</option>
-                <option value="giorno">a giorno</option>
-                <option value="settimana">a settimana</option>
-                <option value="mese">a mese</option>
-                <option value="pezzo">a pezzo</option>
-                <option value="m3mese">a m³ / mese</option>
-                <option value="palletmese">a pallet / mese</option>
-                <option value="km">a chilometro</option>
-                <option value="corpo">in blocco (vendita)</option>
+              <span class="campo__nome">Quanto costa nuova oggi (€)</span>
+              <input type="number" id="f-nuovo" min="0" step="500" value="150000">
+              <span class="campo__aiuto">Serve a mostrare il risparmio.</span>
+            </label>
+          </div>
+          <div id="blocco-asta" hidden>
+            <div class="griglia griglia--2" style="margin-top:16px">
+              <label class="campo" style="margin-top:0">
+                <span class="campo__nome">Base d'asta (€)</span>
+                <input type="number" id="f-base" min="0" step="100" value="30000">
+              </label>
+              <label class="campo" style="margin-top:0">
+                <span class="campo__nome">Rilancio minimo (€)</span>
+                <input type="number" id="f-rilancio" min="50" step="50" value="500">
+              </label>
+            </div>
+            <label class="campo">
+              <span class="campo__nome">L'asta chiude fra</span>
+              <select id="f-scadenza">
+                <option value="3">3 giorni</option>
+                <option value="7" selected>7 giorni</option>
+                <option value="14">14 giorni</option>
+              </select>
+            </label>
+          </div>
+          <div class="griglia griglia--2" style="margin-top:16px">
+            <label class="campo" style="margin-top:0">
+              <span class="campo__nome">Garanzia che dai</span>
+              <select id="f-garanzia">
+                <option value="0">Nessuna, vista e piaciuta</option>
+                <option value="3" selected>3 mesi</option>
+                <option value="6">6 mesi</option>
+                <option value="12">12 mesi</option>
+              </select>
+            </label>
+            <label class="campo" style="margin-top:0">
+              <span class="campo__nome">Consegna</span>
+              <select id="f-consegna">
+                <option value="ritiro">Ritiro a carico di chi compra</option>
+                <option value="accordo" selected>Trasporto da concordare</option>
+                <option value="inclusa">Consegna compresa nel prezzo</option>
               </select>
             </label>
           </div>
           <label class="campo">
-            <span class="campo__nome">Impegno minimo</span>
-            <input type="text" id="f-minimo" placeholder="4 ore" value="4 ore">
-          </label>
-          <label class="campo">
-            <span class="campo__nome">Logistica</span>
-            <select id="f-logistica">
-              <option value="in-sede">Si lavora in sede mia</option>
-              <option value="spedizione">Il cliente spedisce i pezzi</option>
-              <option value="ritiro">Il bene si ritira e si riconsegna</option>
+            <span class="campo__nome">Smontaggio e carico</span>
+            <select id="f-smontaggio">
+              <option value="incluso">Li faccio io, sono compresi</option>
+              <option value="acquirente" selected>A carico di chi compra</option>
+              <option value="venditore">Li faccio io, ma a preventivo</option>
+              <option value="gia-smontato">È già smontata e pronta al carico</option>
             </select>
           </label>
           <div class="avviso avviso--nota" id="stima" style="margin-top:18px"></div>
@@ -155,26 +210,26 @@
         <section data-sezione="4" hidden>
           <div class="campo">
             <label class="campo__nome" for="f-specifiche">Scheda tecnica</label>
-            <textarea id="f-specifiche" rows="6" placeholder="Corse X/Y/Z: 800 × 500 × 500 mm&#10;Mandrino: 12.000 giri/min&#10;Tolleranza tipica: ± 0,02 mm"></textarea>
+            <textarea id="f-specifiche" rows="6" placeholder="Corse X/Y/Z: 800 × 500 × 500 mm&#10;Mandrino: 12.000 giri/min, 4.100 ore&#10;Ultimo intervento: revisione guide, marzo 2025"></textarea>
             <span class="campo__aiuto">Una voce per riga, nella forma <code>chiave: valore</code>.
-              Chi compra capacità compra numeri: più righe metti, meno telefonate ricevi.</span>
+              Chi compra usato compra numeri e manutenzioni: più righe metti, meno telefonate ricevi.</span>
           </div>
           <label class="campo">
             <span class="campo__nome">Compreso nel prezzo <span class="fioco">(separati da virgola)</span></span>
-            <input type="text" id="f-incluso" placeholder="Refrigerante, attrezzaggio base">
+            <input type="text" id="f-incluso" placeholder="Attrezzatura, manuali, ricambi di scorta">
           </label>
           <label class="campo">
-            <span class="campo__nome">A parte <span class="fioco">(separati da virgola)</span></span>
-            <input type="text" id="f-escluso" placeholder="Utensili speciali, trasporto">
+            <span class="campo__nome">A carico di chi compra <span class="fioco">(separati da virgola)</span></span>
+            <input type="text" id="f-escluso" placeholder="Trasporto, utensili, opere murarie">
           </label>
           <label class="campo">
-            <span class="campo__nome">Certificazioni <span class="fioco">(separate da virgola)</span></span>
-            <input type="text" id="f-certificazioni" placeholder="ISO 9001:2015, EN 1090">
+            <span class="campo__nome">Documenti e conformità <span class="fioco">(separati da virgola)</span></span>
+            <input type="text" id="f-certificazioni" placeholder="Marcatura CE, verifica periodica 2025">
           </label>
           <div class="avviso avviso--occhio" style="margin-top:18px">
             <span><strong>Prima della pubblicazione vera</strong> verificheremmo partita IVA, visura
-              e referente. Qui l'annuncio compare subito nel catalogo, marcato come tuo, e resta
-              nel tuo browser.</span>
+              e proprietà del bene. Qui l'annuncio compare subito nel listino, marcato come tuo, e
+              resta nel tuo browser.</span>
           </div>
         </section>
 
@@ -184,7 +239,7 @@
     <!-- ========================================= COLONNA ANTEPRIMA -->
     <div class="pila attaccata">
       <div class="carta">
-        <div class="carta__testa">Come si vedrà nel catalogo</div>
+        <div class="carta__testa">Come si vedrà nel listino</div>
         <div class="carta__corpo" style="background:var(--sfondo);border-radius:0 0 12px 12px">
           <div class="elenco-beni" id="anteprima"></div>
         </div>

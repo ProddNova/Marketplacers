@@ -1,5 +1,5 @@
 /* =============================================================================
-   FERMO — catalogo
+   FERMO — listino dell'usato
    Sul telefono comandano tre cose sole: la ricerca, le categorie e un pannello
    di filtri che si apre quando serve. Tutto il resto sta dentro il pannello,
    così l'elenco dei risultati parte subito invece che dopo due schermate.
@@ -14,8 +14,8 @@
   var g = function (id) { return document.getElementById(id); };
 
   var stato = {
-    q: '', cat: [], mod: [], unita: '', prezzo: null,
-    citta: '', preavviso: '', verificato: false, preferiti: false, ordina: 'rilevanza'
+    q: '', cat: [], mod: [], prezzo: null, citta: '', anno: '', condizione: '',
+    ritiro: '', verificato: false, garanzia: false, preferiti: false, ordina: 'rilevanza'
   };
 
   var el = {
@@ -34,6 +34,8 @@
   g('icona-lente').innerHTML = FERMO.icona('lente');
   g('icona-filtro').innerHTML = FERMO.icona('filtro');
   g('icona-mappa').innerHTML = FERMO.icona('mappa');
+
+  var PREZZO_MAX = Math.max.apply(null, TUTTI.map(FERMO.prezzoCorrente));
 
   /* ------------------------------------------------- chip delle categorie */
   el.chipCat.innerHTML = D.CATEGORIE.map(function (c) {
@@ -63,10 +65,12 @@
     stato.q = p.get('q') || '';
     stato.cat = (p.get('cat') || '').split(',').filter(Boolean);
     stato.mod = (p.get('mod') || '').split(',').filter(Boolean);
-    stato.unita = p.get('unita') || '';
     stato.citta = p.get('citta') || '';
-    stato.preavviso = p.get('pronta') || '';
+    stato.anno = p.get('anno') || '';
+    stato.condizione = p.get('stato') || '';
+    stato.ritiro = p.get('ritiro') || '';
     stato.verificato = p.get('verificato') === '1';
+    stato.garanzia = p.get('garanzia') === '1';
     stato.preferiti = p.get('preferiti') === '1';
     stato.ordina = p.get('ordina') || 'rilevanza';
     var pr = p.get('prezzo');
@@ -80,11 +84,13 @@
     if (stato.q) p.set('q', stato.q);
     if (stato.cat.length) p.set('cat', stato.cat.join(','));
     if (stato.mod.length) p.set('mod', stato.mod.join(','));
-    if (stato.unita) p.set('unita', stato.unita);
-    if (stato.prezzo != null) p.set('prezzo', String(stato.prezzo));
+    if (stato.prezzo != null && stato.prezzo < PREZZO_MAX) p.set('prezzo', String(stato.prezzo));
     if (stato.citta) p.set('citta', stato.citta);
-    if (stato.preavviso) p.set('pronta', stato.preavviso);
+    if (stato.anno) p.set('anno', stato.anno);
+    if (stato.condizione) p.set('stato', stato.condizione);
+    if (stato.ritiro) p.set('ritiro', stato.ritiro);
     if (stato.verificato) p.set('verificato', '1');
+    if (stato.garanzia) p.set('garanzia', '1');
     if (stato.preferiti) p.set('preferiti', '1');
     if (stato.ordina !== 'rilevanza') p.set('ordina', stato.ordina);
     var s = p.toString();
@@ -93,8 +99,8 @@
 
   /* ---------------------------------------------------------- filtraggio */
   function testo(a) {
-    return [a.titolo, a.fornitore, a.citta, a.prov, a.regione, a.sintesi,
-            D.categoria(a.cat).nome, a.id,
+    return [a.titolo, a.venditore, a.citta, a.prov, a.regione, a.sintesi,
+            D.categoria(a.cat).nome, D.condizione(a.condizione).nome, a.anno, a.id,
             (a.specifiche || []).map(function (s) { return s.join(' '); }).join(' ')]
       .join(' ').toLowerCase();
   }
@@ -103,6 +109,7 @@
     var q = stato.q.trim().toLowerCase();
     var parole = q ? q.split(/\s+/) : [];
     var salvati = FERMO.store.tutto().preferiti;
+    var quotaMin = stato.condizione ? D.condizione(stato.condizione).quota : null;
 
     return TUTTI.filter(function (a) {
       if (parole.length) {
@@ -111,11 +118,14 @@
       }
       if (stato.cat.length && stato.cat.indexOf(a.cat) === -1) return false;
       if (stato.mod.length && !stato.mod.some(function (m) { return a.mod.indexOf(m) !== -1; })) return false;
-      if (stato.unita && a.prezzo.unita !== stato.unita) return false;
-      if (stato.unita && stato.prezzo != null && a.prezzo.valore > stato.prezzo) return false;
+      if (stato.prezzo != null && FERMO.prezzoCorrente(a) > stato.prezzo) return false;
       if (stato.citta && a.citta !== stato.citta) return false;
-      if (stato.preavviso && a.preavviso > parseInt(stato.preavviso, 10)) return false;
+      if (stato.anno && (!a.anno || a.anno < parseInt(stato.anno, 10))) return false;
+      /* lo stato scelto è una soglia: «buono» tiene dentro anche ottimo e come nuovo */
+      if (quotaMin != null && D.condizione(a.condizione).quota < quotaMin - 0.01) return false;
+      if (stato.ritiro && a.ritiroFra > parseInt(stato.ritiro, 10)) return false;
       if (stato.verificato && !a.verificato) return false;
+      if (stato.garanzia && !a.garanzia) return false;
       if (stato.preferiti && salvati.indexOf(a.id) === -1) return false;
       return true;
     });
@@ -124,16 +134,24 @@
   function ordina(lista) {
     var c = lista.slice();
     switch (stato.ordina) {
-      case 'ore':        return c.sort(function (a, b) { return b.oreLibere - a.oreLibere; });
-      case 'prezzo-su':  return c.sort(function (a, b) { return a.prezzo.valore - b.prezzo.valore; });
-      case 'prezzo-giu': return c.sort(function (a, b) { return b.prezzo.valore - a.prezzo.valore; });
-      case 'voto':       return c.sort(function (a, b) { return (b.rating || 0) - (a.rating || 0); });
-      case 'pronto':     return c.sort(function (a, b) { return a.preavviso - b.preavviso; });
+      case 'prezzo-su':  return c.sort(function (a, b) { return FERMO.prezzoCorrente(a) - FERMO.prezzoCorrente(b); });
+      case 'prezzo-giu': return c.sort(function (a, b) { return FERMO.prezzoCorrente(b) - FERMO.prezzoCorrente(a); });
+      case 'recenti':    return c.sort(function (a, b) { return (b.anno || 0) - (a.anno || 0); });
+      case 'stato':      return c.sort(function (a, b) {
+        return D.condizione(b.condizione).quota - D.condizione(a.condizione).quota;
+      });
+      case 'sconto':     return c.sort(function (a, b) { return (FERMO.sconto(b) || 0) - (FERMO.sconto(a) || 0); });
+      case 'asta':       return c.sort(function (a, b) {
+        var sa = FERMO.inAsta(a) ? a.asta.scadeFra : 999;
+        var sb = FERMO.inAsta(b) ? b.asta.scadeFra : 999;
+        return sa - sb;
+      });
       default:
-        /* rilevanza: prima i verificati con più capacità libera */
+        /* rilevanza: prima i tuoi annunci, poi i venditori verificati con
+           lo scarto più alto sul nuovo */
         return c.sort(function (a, b) {
-          var pa = (a.verificato ? 2 : 0) + (a.origine === 'utente' ? 5 : 0) + a.oreLibere / 100;
-          var pb = (b.verificato ? 2 : 0) + (b.origine === 'utente' ? 5 : 0) + b.oreLibere / 100;
+          var pa = (a.verificato ? 2 : 0) + (a.origine === 'utente' ? 5 : 0) + (FERMO.sconto(a) || 0) * 3;
+          var pb = (b.verificato ? 2 : 0) + (b.origine === 'utente' ? 5 : 0) + (FERMO.sconto(b) || 0) * 3;
           return pb - pa;
         });
     }
@@ -144,12 +162,17 @@
     var voci = [];
     if (stato.q) voci.push({ k: 'q', t: '“' + stato.q + '”' });
     stato.cat.forEach(function (c) { voci.push({ k: 'cat:' + c, t: D.categoria(c).breve }); });
-    stato.mod.forEach(function (m) { voci.push({ k: 'mod:' + m, t: D.modalita(m).nome }); });
-    if (stato.unita) voci.push({ k: 'unita', t: 'unità ' + FERMO.fmt.unita(stato.unita).suffisso.replace('/', '') });
+    stato.mod.forEach(function (m) { voci.push({ k: 'mod:' + m, t: D.formula(m).nome }); });
+    if (stato.prezzo != null && stato.prezzo < PREZZO_MAX) {
+      voci.push({ k: 'prezzo', t: 'fino a ' + FERMO.fmt.euroTondo(stato.prezzo) });
+    }
     if (stato.citta) voci.push({ k: 'citta', t: stato.citta });
-    if (stato.preavviso) voci.push({ k: 'pronta', t: 'entro ' + stato.preavviso + ' gg' });
+    if (stato.anno) voci.push({ k: 'anno', t: 'dal ' + stato.anno });
+    if (stato.condizione) voci.push({ k: 'stato', t: 'almeno ' + D.condizione(stato.condizione).nome.toLowerCase() });
+    if (stato.ritiro) voci.push({ k: 'ritiro', t: 'ritiro entro ' + stato.ritiro + ' gg' });
     if (stato.verificato) voci.push({ k: 'verificato', t: 'verificati' });
-    if (stato.preferiti) voci.push({ k: 'preferiti', t: 'preferiti' });
+    if (stato.garanzia) voci.push({ k: 'garanzia', t: 'con garanzia' });
+    if (stato.preferiti) voci.push({ k: 'preferiti', t: 'che seguo' });
     return voci;
   }
 
@@ -157,10 +180,13 @@
     if (k === 'q') { stato.q = ''; el.q.value = ''; }
     else if (k.indexOf('cat:') === 0) stato.cat = stato.cat.filter(function (x) { return x !== k.slice(4); });
     else if (k.indexOf('mod:') === 0) stato.mod = stato.mod.filter(function (x) { return x !== k.slice(4); });
-    else if (k === 'unita') { stato.unita = ''; stato.prezzo = null; }
+    else if (k === 'prezzo') stato.prezzo = null;
     else if (k === 'citta') stato.citta = '';
-    else if (k === 'pronta') stato.preavviso = '';
+    else if (k === 'anno') stato.anno = '';
+    else if (k === 'stato') stato.condizione = '';
+    else if (k === 'ritiro') stato.ritiro = '';
     else if (k === 'verificato') stato.verificato = false;
+    else if (k === 'garanzia') stato.garanzia = false;
     else if (k === 'preferiti') stato.preferiti = false;
   }
 
@@ -172,8 +198,9 @@
   });
 
   function pulisci() {
-    stato.q = ''; stato.cat = []; stato.mod = []; stato.unita = ''; stato.prezzo = null;
-    stato.citta = ''; stato.preavviso = ''; stato.verificato = false; stato.preferiti = false;
+    stato.q = ''; stato.cat = []; stato.mod = []; stato.prezzo = null;
+    stato.citta = ''; stato.anno = ''; stato.condizione = ''; stato.ritiro = '';
+    stato.verificato = false; stato.garanzia = false; stato.preferiti = false;
     el.q.value = '';
     disegna();
   }
@@ -186,55 +213,31 @@
   var citta = {};
   TUTTI.forEach(function (a) { citta[a.citta] = (citta[a.citta] || 0) + 1; });
 
-  function estremiPrezzo(u) {
-    var v = TUTTI.filter(function (a) { return a.prezzo.unita === u; })
-                 .map(function (a) { return a.prezzo.valore; });
-    if (!v.length) return null;
-    return { min: Math.min.apply(null, v), max: Math.max.apply(null, v) };
-  }
-
-  var UNITA_ELENCO = [
-    ['ora', 'a ora'], ['giorno', 'a giorno'], ['settimana', 'a settimana'], ['mese', 'a mese'],
-    ['pezzo', 'a pezzo'], ['m3mese', 'a metro cubo / mese'], ['palletmese', 'a pallet / mese'],
-    ['km', 'a chilometro'], ['corpo', 'in blocco (vendita)']
-  ];
+  /* Il cursore del prezzo si muove a scatti utili: sotto i 10.000 € cento euro
+     alla volta, sopra mille, altrimenti servono quaranta trascinamenti. */
+  function passoPrezzo(max) { return max > 100000 ? 1000 : max > 10000 ? 500 : 100; }
 
   function corpoFiltri() {
-    var e = stato.unita ? estremiPrezzo(stato.unita) : null;
-    var passo = e ? (e.max > 1000 ? 100 : e.max > 100 ? 5 : e.max > 10 ? 1 : 0.05) : 1;
-    var valore = stato.prezzo != null && e ? Math.min(stato.prezzo, e.max) : (e ? e.max : 0);
+    var valore = stato.prezzo != null ? stato.prezzo : PREZZO_MAX;
+    var passo = passoPrezzo(PREZZO_MAX);
+    var annoOggi = new Date().getFullYear();
 
     return '' +
       '<div class="campo">' +
-        '<span class="campo__nome">Come la vuoi</span>' +
-        '<div class="riga" style="gap:8px">' + D.MODALITA.map(function (m) {
+        '<span class="campo__nome">Come si compra</span>' +
+        '<div class="riga" style="gap:8px">' + D.FORMULE.map(function (m) {
           return '<button class="chip" type="button" data-mod="' + m.id + '" aria-pressed="' +
             (stato.mod.indexOf(m.id) !== -1 ? 'true' : 'false') + '">' + FERMO.esc(m.nome) + '</button>';
         }).join('') + '</div>' +
       '</div>' +
 
-      '<label class="campo">' +
-        '<span class="campo__nome">Unità di prezzo</span>' +
-        '<select id="f-unita">' +
-          '<option value="">Tutte le unità</option>' +
-          UNITA_ELENCO.map(function (u) {
-            return '<option value="' + u[0] + '"' + (stato.unita === u[0] ? ' selected' : '') + '>' +
-              FERMO.esc(u[1]) + '</option>';
-          }).join('') +
-        '</select>' +
-        '<span class="campo__aiuto">I prezzi si confrontano solo a parità di unità.</span>' +
-      '</label>' +
-
       '<div class="campo">' +
         '<span class="campo__nome">Prezzo massimo ' +
-          '<span class="num accento" id="f-prezzo-valore">' +
-            (e ? FERMO.fmt.euro(valore) + FERMO.fmt.unita(stato.unita).suffisso : '') + '</span></span>' +
-        '<input type="range" id="f-prezzo" ' +
-          'min="' + (e ? 0 : 0) + '" max="' + (e ? e.max : 100) + '" step="' + passo + '" ' +
-          'value="' + valore + '"' + (e ? '' : ' disabled') + '>' +
-        '<span class="campo__aiuto">' + (e
-          ? 'Da ' + FERMO.fmt.euro(e.min) + ' a ' + FERMO.fmt.euro(e.max) + ' su questa unità.'
-          : 'Scegli prima un\'unità di prezzo.') + '</span>' +
+          '<span class="num accento" id="f-prezzo-valore">' + FERMO.fmt.euroTondo(valore) + '</span></span>' +
+        '<input type="range" id="f-prezzo" min="0" max="' + PREZZO_MAX + '" step="' + passo + '" ' +
+          'value="' + valore + '">' +
+        '<span class="campo__aiuto">IVA esclusa. In asta conta l\'offerta più alta di adesso, ' +
+          'non il prezzo richiesto.</span>' +
       '</div>' +
 
       '<label class="campo">' +
@@ -245,23 +248,53 @@
               FERMO.esc(c) + ' (' + citta[c] + ')</option>';
           }).join('') +
         '</select>' +
+        '<span class="campo__aiuto">Il ritiro parte da qui: più è lontano, più costa portarla via.</span>' +
       '</label>' +
 
       '<label class="campo">' +
-        '<span class="campo__nome">Pronta entro</span>' +
-        '<select id="f-preavviso">' +
-          ['', '2', '5', '10'].map(function (v) {
-            var nome = v ? v + ' giorni' : 'Qualsiasi preavviso';
-            return '<option value="' + v + '"' + (stato.preavviso === v ? ' selected' : '') + '>' + nome + '</option>';
+        '<span class="campo__nome">Non più vecchia di</span>' +
+        '<select id="f-anno">' +
+          [['', 'Qualsiasi anno'],
+           [String(annoOggi - 5), '5 anni (dal ' + (annoOggi - 5) + ')'],
+           [String(annoOggi - 10), '10 anni (dal ' + (annoOggi - 10) + ')'],
+           [String(annoOggi - 15), '15 anni (dal ' + (annoOggi - 15) + ')']
+          ].map(function (v) {
+            return '<option value="' + v[0] + '"' + (stato.anno === v[0] ? ' selected' : '') + '>' +
+              FERMO.esc(v[1]) + '</option>';
           }).join('') +
         '</select>' +
       '</label>' +
 
+      '<label class="campo">' +
+        '<span class="campo__nome">Stato almeno</span>' +
+        '<select id="f-stato">' +
+          '<option value="">Qualsiasi stato</option>' +
+          D.CONDIZIONI.map(function (c) {
+            return '<option value="' + c.id + '"' + (stato.condizione === c.id ? ' selected' : '') + '>' +
+              FERMO.esc(c.nome) + '</option>';
+          }).join('') +
+        '</select>' +
+        '<span class="campo__aiuto">È una soglia: scegliendo «buono» restano dentro anche le migliori.</span>' +
+      '</label>' +
+
+      '<label class="campo">' +
+        '<span class="campo__nome">Ritirabile entro</span>' +
+        '<select id="f-ritiro">' +
+          ['', '7', '15', '30'].map(function (v) {
+            var nome = v ? v + ' giorni' : 'Quando capita';
+            return '<option value="' + v + '"' + (stato.ritiro === v ? ' selected' : '') + '>' + nome + '</option>';
+          }).join('') +
+        '</select>' +
+        '<span class="campo__aiuto">Molte macchine sono ancora in produzione: escono quando le sostituiscono.</span>' +
+      '</label>' +
+
       '<div class="campo">' +
         '<label class="spunta"><input type="checkbox" id="f-verificato"' +
-          (stato.verificato ? ' checked' : '') + '> Solo fornitori verificati</label>' +
+          (stato.verificato ? ' checked' : '') + '> Solo venditori verificati</label>' +
+        '<label class="spunta"><input type="checkbox" id="f-garanzia"' +
+          (stato.garanzia ? ' checked' : '') + '> Solo con garanzia del venditore</label>' +
         '<label class="spunta"><input type="checkbox" id="f-preferiti"' +
-          (stato.preferiti ? ' checked' : '') + '> Solo quelli che ho salvato</label>' +
+          (stato.preferiti ? ' checked' : '') + '> Solo quelle che seguo</label>' +
       '</div>';
   }
 
@@ -274,26 +307,18 @@
     });
 
     function leggi() {
-      var u = d.querySelector('#f-unita').value;
-      var cambiataUnita = u !== stato.unita;
-      stato.unita = u;
       stato.citta = d.querySelector('#f-citta').value;
-      stato.preavviso = d.querySelector('#f-preavviso').value;
+      stato.anno = d.querySelector('#f-anno').value;
+      stato.condizione = d.querySelector('#f-stato').value;
+      stato.ritiro = d.querySelector('#f-ritiro').value;
       stato.verificato = d.querySelector('#f-verificato').checked;
+      stato.garanzia = d.querySelector('#f-garanzia').checked;
       stato.preferiti = d.querySelector('#f-preferiti').checked;
       var pr = d.querySelector('#f-prezzo');
-      if (cambiataUnita) {
-        /* cambiando unità il cursore riparte dal massimo di quella nuova */
-        var e = u ? estremiPrezzo(u) : null;
-        stato.prezzo = e ? e.max : null;
-        rifai(d);
-        return;
-      }
-      stato.prezzo = pr.disabled ? null : parseFloat(pr.value);
+      var v = parseFloat(pr.value);
+      stato.prezzo = v >= PREZZO_MAX ? null : v;
       var et = d.querySelector('#f-prezzo-valore');
-      if (et && stato.prezzo != null) {
-        et.textContent = FERMO.fmt.euro(stato.prezzo) + FERMO.fmt.unita(stato.unita).suffisso;
-      }
+      if (et) et.textContent = FERMO.fmt.euroTondo(v);
       disegna();
       aggiornaPiede(d);
     }
@@ -331,7 +356,7 @@
     var b = d.querySelector('#f-conferma');
     if (!b) return;
     var n = filtra().length;
-    b.textContent = n ? 'Vedi ' + n + (n === 1 ? ' scheda' : ' schede') : 'Nessun risultato';
+    b.textContent = n ? 'Vedi ' + n + (n === 1 ? ' macchina' : ' macchine') : 'Nessun risultato';
   }
 
   g('apri-filtri').addEventListener('click', apriFiltri);
@@ -353,7 +378,7 @@
   function disegnaQuadro(lista) {
     if (!mappaAperta) return;
     innestoQuadro.innerHTML = FERMO.quadro(lista, {
-      descrizione: 'Sedi con capacità a catalogo, per città'
+      descrizione: 'Sedi con macchine a listino, per città'
     });
     if (stato.citta) {
       var g2 = innestoQuadro.querySelector('[data-citta="' + CSS.escape(stato.citta) + '"]');
@@ -395,8 +420,8 @@
     var voci = attivi();
 
     el.conteggio.textContent = lista.length === TUTTI.length
-      ? TUTTI.length + ' schede a catalogo'
-      : lista.length + (lista.length === 1 ? ' scheda' : ' schede') + ' su ' + TUTTI.length;
+      ? TUTTI.length + ' macchine a listino'
+      : lista.length + (lista.length === 1 ? ' macchina' : ' macchine') + ' su ' + TUTTI.length;
 
     el.pulisci.classList.toggle('nascosto', !voci.length);
     el.contaFiltri.textContent = voci.length;
@@ -411,8 +436,9 @@
     el.risultati.innerHTML = lista.map(FERMO.scheda).join('');
     el.niente.innerHTML = lista.length ? '' :
       '<div class="vuoto">' +
-        '<h3>Nessuna capacità con questi filtri</h3>' +
-        '<p class="piccolo">Allarga il raggio: togli la città, o prova tutte le modalità.</p>' +
+        '<h3>Nessuna macchina con questi filtri</h3>' +
+        '<p class="piccolo">Allarga il raggio: togli la città, alza il prezzo o accetta ' +
+          'uno stato più basso.</p>' +
         '<button class="btn" type="button" id="vuoto-pulisci" style="margin-top:14px">Azzera i filtri</button>' +
       '</div>';
     var vp = g('vuoto-pulisci');

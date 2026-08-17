@@ -1,6 +1,6 @@
 /* =============================================================================
-   FERMO — console del proprietario
-   Le richieste da evadere vengono prima dei grafici: sono l'unica cosa su cui
+   FERMO — console del venditore
+   Le proposte da decidere vengono prima dei grafici: sono l'unica cosa su cui
    si deve decidere qualcosa. Niente tabelle da far scorrere di lato: ogni riga
    si impila da sola sul telefono.
    ========================================================================== */
@@ -11,95 +11,100 @@
   var D = FERMO.D;
   var g = function (id) { return document.getElementById(id); };
 
-  /* Parco dimostrativo + tutto ciò che l'utente ha pubblicato in questa demo */
-  var DEMO = ['FRM-CNC-0142', 'FRM-TAG-0207', 'FRM-MAG-0021', 'FRM-VEI-0092', 'FRM-ADD-0455'];
+  /* Parco dimostrativo + tutto ciò che l'utente ha messo in vendita qui */
+  var DEMO = ['FRM-CNC-0142', 'FRM-TAG-0207', 'FRM-DEF-0501', 'FRM-VEI-0092', 'FRM-ADD-0455'];
   var miei = (FERMO.store.tutto().annunci || []);
   var parco = miei.concat(DEMO.map(FERMO.trova).filter(Boolean));
 
-  /* ------------------------------------------------------------- ricavi -- */
+  /* ------------------------------------------------ valore e interesse -- */
+  var valore = parco.reduce(function (t, a) { return t + FERMO.prezzoCorrente(a); }, 0);
+  var netto = FERMO.nettoVenditore(valore);
+
   var serie = new Array(12).fill(0);
   parco.forEach(function (a) {
-    D.storicoRicavi(a.id).forEach(function (v, i) { serie[i] += v; });
+    D.storicoVisite(a.id).forEach(function (v, i) { serie[i] += v; });
   });
-  var totale = serie.reduce(function (t, v) { return t + v; }, 0);
+  var visiteTotali = serie.reduce(function (t, v) { return t + v; }, 0);
   var ultima = serie[11], penultima = serie[10] || 1;
   var delta = (ultima - penultima) / penultima;
 
-  g('periodo').textContent = parco.length + ' beni pubblicati · ultime 12 settimane';
-  g('ricavo-totale').textContent = FERMO.fmt.euroTondo(totale);
-  g('ricavo-nota').innerHTML = 'Ultima settimana ' + FERMO.fmt.euroTondo(ultima) +
-    ', <strong style="color:' + (delta >= 0 ? 'var(--verde)' : 'var(--rosso)') + '">' +
-    (delta >= 0 ? '▲ +' : '▼ ') + (delta * 100).toFixed(1) + ' %</strong> sulla precedente. ' +
-    'Al netto della commissione: ' + FERMO.fmt.euroTondo(totale * 0.91) + '.';
+  var interessi = parco.map(function (a) { return D.interesse(a.id); });
+  var giorniMedi = Math.round(
+    interessi.reduce(function (t, i) { return t + i.giorni; }, 0) / (interessi.length || 1));
+  var piuVecchio = parco.reduce(function (best, a, i) {
+    return interessi[i].giorni > interessi[best].giorni ? i : best;
+  }, 0);
 
-  /* ------------------------------------------------------------ tessere -- */
-  var oreVendute = parco.reduce(function (t, a) { return t + (a.oreSettimana - a.oreLibere); }, 0);
-  var oreTotali = parco.reduce(function (t, a) { return t + a.oreSettimana; }, 0);
-  var oreFerme = parco.reduce(function (t, a) { return t + a.oreLibere; }, 0);
-  var satMedia = oreTotali ? oreVendute / oreTotali : 0;
+  g('periodo').textContent = parco.length + ' macchine in vendita · ultime 12 settimane';
+  g('valore-totale').textContent = FERMO.fmt.euroTondo(valore);
+  g('valore-nota').innerHTML = 'Se vendi tutto ti restano ' +
+    '<strong>' + FERMO.fmt.euroTondo(netto) + '</strong> al netto della commissione del 6 %. ' +
+    'Visite alle schede <strong style="color:' + (delta >= 0 ? 'var(--verde)' : 'var(--rosso)') + '">' +
+    (delta >= 0 ? '▲ +' : '▼ −') + Math.abs(delta * 100).toFixed(1) + ' %</strong> ' +
+    'sulla settimana precedente.';
 
-  function tariffaOraria(a) {
-    switch (a.prezzo.unita) {
-      case 'ora': return a.prezzo.valore;
-      case 'giorno': return a.prezzo.valore / 8;
-      case 'settimana': return a.prezzo.valore / 40;
-      case 'mese': return a.prezzo.valore / 170;
-      case 'corpo': return 0;
-      default: return a.prezzo.valore * 1.5;
-    }
-  }
-  var mancato = parco.reduce(function (t, a) { return t + a.oreLibere * tariffaOraria(a); }, 0);
+  g('t-annunci').textContent = FERMO.fmt.num(parco.length);
+  g('t-annunci-nota').textContent = parco.filter(FERMO.inAsta).length + ' in asta';
+  g('t-visite').textContent = FERMO.fmt.num(visiteTotali);
+  g('t-giorni').textContent = FERMO.fmt.num(giorniMedi);
+  g('t-giorni-nota').textContent = 'la più vecchia da ' +
+    FERMO.fmt.giorni(interessi[piuVecchio].giorni);
 
-  g('t-ore').textContent = FERMO.fmt.num(oreVendute);
-  g('t-ore-nota').textContent = 'su ' + FERMO.fmt.num(oreTotali) + ' disponibili';
-  g('t-sat').textContent = FERMO.fmt.pct(satMedia);
-  g('t-sat-nota').textContent = oreFerme + ' ore ferme a settimana';
-  g('t-persa').textContent = FERMO.fmt.euroTondo(mancato);
+  /* ---------------------------------------------------------- proposte -- */
+  var COMPRATORI = ['Studio Tecnico Ferrari', 'Nautica Sanremo srl', 'Prototipi Bianchi',
+                    'Cooperativa Agricola Sud', 'Elettromeccanica Ionica', 'Design Lab Milano',
+                    'Restauri Monumentali spa', 'Impianti Rossi & C.'];
 
-  /* ---------------------------------------------------------- richieste -- */
-  var CLIENTI = ['Studio Tecnico Ferrari', 'Nautica Sanremo srl', 'Prototipi Bianchi',
-                 'Cooperativa Agricola Sud', 'Elettromeccanica Ionica', 'Design Lab Milano',
-                 'Restauri Monumentali spa', 'Impianti Rossi & C.'];
-
-  function richiesteGenerate() {
+  function proposteGenerate() {
     var out = [];
     parco.forEach(function (a, k) {
-      var r = D.rng(a.id + '|req');
+      var r = D.rng(a.id + '|off');
       var quante = Math.floor(r() * 3);
+      var base = FERMO.prezzoCorrente(a);
       for (var i = 0; i < quante; i++) {
-        var q = Math.ceil(r() * 12) + 2;
-        var giorni = Math.ceil(r() * 20) + a.preavviso;
-        var p = FERMO.preventivo(a, q, { assicurazione: r() > 0.5, trasporto: r() > 0.75 });
+        var asta = FERMO.inAsta(a);
+        var precedente = asta ? base + i * a.asta.rilancio : null;
+        var importo = asta
+          ? precedente + a.asta.rilancio
+          : Math.round(base * (0.72 + r() * 0.23) / 100) * 100;
         out.push({
-          codice: 'REQ-' + (100 + k * 10 + i),
+          codice: 'OFF-' + (100 + k * 10 + i),
           assetId: a.id,
           titolo: a.titolo,
-          cliente: CLIENTI[Math.floor(r() * CLIENTI.length)],
-          quando: new Date(Date.now() + giorni * 86400000),
-          quantita: q,
-          unita: a.prezzo.unita,
-          importo: p.totale
+          compratore: COMPRATORI[Math.floor(r() * COMPRATORI.length)],
+          scade: new Date(Date.now() + (1 + Math.ceil(r() * 4)) * 86400000),
+          importo: importo,
+          precedente: precedente,
+          richiesto: a.prezzo,
+          tipo: asta ? 'rilancio' : (a.mod.indexOf('fisso') !== -1 && r() > 0.6 ? 'acquisto' : 'proposta'),
+          visita: r() > 0.45
         });
       }
     });
     return out;
   }
 
-  var richieste = richiesteGenerate();
+  var proposte = proposteGenerate();
   var decisioni = FERMO.store.tutto().decisioni || {};
 
-  function disegnaRichieste() {
-    var box = g('lista-richieste');
-    if (!richieste.length) {
-      box.innerHTML = '<div class="vuoto"><h3>Nessuna richiesta aperta</h3>' +
-        '<p class="piccolo">Quando qualcuno prenota, la richiesta compare qui.</p></div>';
-      g('conteggio-richieste').textContent = '0 aperte';
-      g('t-richieste').textContent = '0';
+  var ETICHETTA = {
+    rilancio: '<span class="pillola pillola--ambra">Rilancio d\'asta</span>',
+    acquisto: '<span class="pillola pillola--verde">Compra al prezzo esposto</span>',
+    proposta: '<span class="pillola pillola--blu">Proposta</span>'
+  };
+
+  function disegnaProposte() {
+    var box = g('lista-proposte');
+    if (!proposte.length) {
+      box.innerHTML = '<div class="vuoto"><h3>Nessuna proposta aperta</h3>' +
+        '<p class="piccolo">Quando qualcuno fa un\'offerta su una tua macchina, compare qui.</p></div>';
+      g('conteggio-proposte').textContent = '0 aperte';
+      g('t-proposte').textContent = '0';
       return;
     }
 
     /* prima quelle su cui c'è ancora da decidere */
-    var ordinate = richieste.slice().sort(function (x, y) {
+    var ordinate = proposte.slice().sort(function (x, y) {
       return (decisioni[x.codice] ? 1 : 0) - (decisioni[y.codice] ? 1 : 0);
     });
 
@@ -109,7 +114,12 @@
         ? '<span class="pillola pillola--verde">Accettata</span>'
         : d === 'rifiutata'
           ? '<span class="pillola">Rifiutata</span>'
-          : '<span class="pillola pillola--ambra">Da evadere</span>';
+          : '<span class="pillola pillola--ambra">Da decidere</span>';
+      var scarto = r.richiesto ? 1 - r.importo / r.richiesto : 0;
+      var sotto = r.tipo === 'rilancio'
+        ? FERMO.fmt.euroTondo(r.importo - r.precedente) + ' sopra l\'offerta precedente'
+        : scarto > 0.005 ? '−' + (scarto * 100).toFixed(0) + ' % dal richiesto'
+                         : 'al prezzo esposto';
       return '<article class="carta">' +
         '<div class="carta__testa">' +
           '<span class="codice">' + FERMO.esc(r.codice) + '</span>' +
@@ -120,15 +130,17 @@
             '<div style="min-width:0">' +
               '<a href="asset.html?id=' + encodeURIComponent(r.assetId) + '" class="grassetto tocco">' +
                 FERMO.esc(r.titolo) + '</a>' +
-              '<div class="piccolo tenue" style="margin-top:4px">' + FERMO.esc(r.cliente) + '</div>' +
+              '<div class="piccolo tenue" style="margin-top:4px">' + FERMO.esc(r.compratore) + '</div>' +
             '</div>' +
             '<div style="text-align:right;flex:none">' +
-              '<div class="grassetto num" style="font-size:17px">' + FERMO.fmt.euro(r.importo) + '</div>' +
-              '<div class="piccolo fioco num">' + FERMO.esc(FERMO.fmt.conta(r.quantita, r.unita)) + '</div>' +
+              '<div class="grassetto num" style="font-size:17px">' + FERMO.fmt.euroTondo(r.importo) + '</div>' +
+              '<div class="piccolo fioco num">' + FERMO.esc(sotto) + '</div>' +
             '</div>' +
           '</div>' +
-          '<div class="piccolo tenue" style="margin-top:10px">Servirebbe dal ' +
-            FERMO.fmt.data(r.quando) + '</div>' +
+          '<div class="riga" style="gap:6px;margin-top:10px">' + ETICHETTA[r.tipo] +
+            (r.visita ? '<span class="pillola">Ha già visto la macchina</span>' : '') + '</div>' +
+          '<div class="piccolo tenue" style="margin-top:10px">Scade il ' +
+            FERMO.fmt.data(r.scade) + '</div>' +
           (d ? '' :
           '<div class="riga" style="gap:8px;margin-top:14px">' +
             '<button class="btn btn--primario btn--piccolo" type="button" data-decidi="accettata" ' +
@@ -140,15 +152,15 @@
       '</article>';
     }).join('');
 
-    var aperte = richieste.filter(function (r) { return !decisioni[r.codice]; });
-    var valore = aperte.reduce(function (t, r) { return t + r.importo; }, 0);
-    g('conteggio-richieste').textContent = aperte.length + ' aperte · ' + FERMO.fmt.euroTondo(valore);
-    g('t-richieste').textContent = aperte.length;
+    var aperte = proposte.filter(function (r) { return !decisioni[r.codice]; });
+    var somma = aperte.reduce(function (t, r) { return t + r.importo; }, 0);
+    g('conteggio-proposte').textContent = aperte.length + ' aperte · ' + FERMO.fmt.euroTondo(somma);
+    g('t-proposte').textContent = aperte.length;
     /* il bollo in navigazione legge questo conteggio anche dalle altre pagine */
-    FERMO.store.aggiorna(function (s) { s.richiesteAperte = aperte.length; });
+    FERMO.store.aggiorna(function (s) { s.offerteAperte = aperte.length; });
   }
 
-  g('lista-richieste').addEventListener('click', function (e) {
+  g('lista-proposte').addEventListener('click', function (e) {
     var b = e.target.closest('[data-decidi]');
     if (!b) return;
     var cod = b.getAttribute('data-cod');
@@ -158,12 +170,12 @@
       s.decisioni = s.decisioni || {};
       s.decisioni[cod] = scelta;
     });
-    FERMO.brindisi(scelta === 'accettata' ? 'Richiesta accettata' : 'Richiesta rifiutata',
-      cod + ' — il cliente riceve la notifica.');
-    disegnaRichieste();
+    FERMO.brindisi(scelta === 'accettata' ? 'Proposta accettata' : 'Proposta rifiutata',
+      cod + ' — il compratore riceve la notifica.');
+    disegnaProposte();
   });
 
-  disegnaRichieste();
+  disegnaProposte();
 
   /* -------------------------------------------------- grafico settimane -- */
   var oggi = new Date();
@@ -173,11 +185,11 @@
   });
 
   g('grafico-settimane').innerHTML = FERMO.colonne(datiSettimane, {
-    formato: FERMO.fmt.euroTondo,
-    descrizione: 'Transato lordo per ciascuna delle ultime 12 settimane, in euro'
+    formato: FERMO.fmt.num,
+    descrizione: 'Visite alle schede in ciascuna delle ultime 12 settimane'
   });
   g('tabella-settimane').innerHTML = FERMO.tabellaDati(datiSettimane,
-    ['Settimana', 'Transato'], { formato: FERMO.fmt.euroTondo });
+    ['Settimana', 'Visite'], { formato: FERMO.fmt.num });
 
   /* lettura al tocco, col mouse e da tastiera */
   var letto = g('letto-settimane');
@@ -186,11 +198,11 @@
     var d = datiSettimane[i];
     c.setAttribute('tabindex', '0');
     c.setAttribute('role', 'img');
-    c.setAttribute('aria-label', 'Settimana del ' + d.nome + ': ' + FERMO.fmt.euroTondo(d.valore));
+    c.setAttribute('aria-label', 'Settimana del ' + d.nome + ': ' + FERMO.fmt.num(d.valore) + ' visite');
     function mostra() {
       letto.innerHTML = '<strong>Settimana del ' + d.nome + '</strong> — ' +
-        '<span class="num">' + FERMO.fmt.euroTondo(d.valore) + '</span> lordi, ' +
-        '<span class="num">' + FERMO.fmt.euroTondo(d.valore * 0.91) + '</span> netti.';
+        '<span class="num">' + FERMO.fmt.num(d.valore) + '</span> visite alle tue schede, ' +
+        'circa <span class="num">' + FERMO.fmt.num(Math.round(d.valore / 22)) + '</span> contatti.';
     }
     c.addEventListener('mouseenter', mostra);
     c.addEventListener('click', mostra);
@@ -204,7 +216,7 @@
   var perCat = {};
   parco.forEach(function (a) {
     var k = D.categoria(a.cat).breve;
-    perCat[k] = (perCat[k] || 0) + (a.oreSettimana - a.oreLibere);
+    perCat[k] = (perCat[k] || 0) + FERMO.prezzoCorrente(a);
   });
   var ordinate = Object.keys(perCat)
     .map(function (k) { return { nome: k, valore: perCat[k] }; })
@@ -224,31 +236,35 @@
     });
   }
 
-  g('grafico-categorie').innerHTML = FERMO.barre(mostrate, {
-    formato: function (v) { return v + ' h'; }
-  });
+  g('grafico-categorie').innerHTML = FERMO.barre(mostrate, { formato: FERMO.fmt.euroTondo });
   g('tabella-categorie').innerHTML = FERMO.tabellaDati(ordinate,
-    ['Categoria', 'Ore vendute / sett.'], { formato: function (v) { return v + ' h'; } });
+    ['Categoria', 'Valore a listino'], { formato: FERMO.fmt.euroTondo });
 
   /* -------------------------------------------------------------- parco -- */
-  g('lista-parco').innerHTML = parco.map(function (a) {
-    var sat = FERMO.saturazione(a);
-    var perso = a.oreLibere * tariffaOraria(a);
+  g('lista-parco').innerHTML = parco.map(function (a, i) {
+    var cond = D.condizione(a.condizione);
+    var int = interessi[i];
+    var aperte = proposte.filter(function (p) {
+      return p.assetId === a.id && !decisioni[p.codice];
+    }).length;
     return '<div class="voce-dati">' +
       '<div class="voce-dati__nome">' +
         '<a href="asset.html?id=' + encodeURIComponent(a.id) + '" class="grassetto tocco">' +
           FERMO.esc(a.titolo) + '</a>' +
         (a.origine === 'utente' ? ' <span class="pillola pillola--accento">tuo</span>' : '') +
-        '<div class="piccolo fioco">' + FERMO.esc(a.citta) + ' · ' + FERMO.esc(a.id) + '</div>' +
+        (FERMO.inAsta(a) ? ' <span class="pillola pillola--ambra">asta</span>' : '') +
+        '<div class="piccolo fioco">' + FERMO.esc(a.citta) + ' · ' + FERMO.esc(a.id) +
+          ' · ' + int.visite + ' visite · ' + int.salvati + ' la seguono</div>' +
         '<div style="margin-top:8px">' +
-          '<div class="metro__traccia" role="img" aria-label="Occupazione ' + FERMO.fmt.pct(sat) + '">' +
-            '<div class="metro__pieno" data-livello="' + FERMO.livello(sat) + '" style="width:' +
-            (sat * 100).toFixed(1) + '%"></div></div>' +
+          '<div class="metro__traccia" role="img" aria-label="Stato ' + FERMO.esc(cond.nome) + '">' +
+            '<div class="metro__pieno" data-livello="' + FERMO.livello(cond.quota) + '" style="width:' +
+            (cond.quota * 100).toFixed(1) + '%"></div></div>' +
         '</div>' +
       '</div>' +
       '<div class="voce-dati__coda">' +
-        '<span class="num tenue">' + FERMO.fmt.pct(sat) + ' · ' + a.oreLibere + ' h ferme</span>' +
-        '<span class="num grassetto">−' + FERMO.fmt.euroTondo(perso) + '</span>' +
+        '<span class="num tenue">' + FERMO.esc(cond.nome) + ' · ' + FERMO.fmt.giorni(int.giorni) + '</span>' +
+        '<span class="num grassetto">' + FERMO.fmt.euroTondo(FERMO.prezzoCorrente(a)) +
+          (aperte ? ' <span class="pillola pillola--ambra">' + aperte + '</span>' : '') + '</span>' +
       '</div>' +
     '</div>';
   }).join('');
