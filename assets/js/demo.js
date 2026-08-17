@@ -1,7 +1,7 @@
 /* =============================================================================
    FERMO — regia della demo
    Al primo accesso il mercato deve sembrare in esercizio da mesi: pratiche in
-   corso, trattative aperte, macchine seguite, proposte gia' decise. Un listino
+   corso, trattative aperte, annunci seguiti, proposte gia' decise. Un listino
    senza traffico non fa capire il prodotto.
    Gira prima di core.js: parla solo con FERMO_DATA e con localStorage.
    ========================================================================== */
@@ -51,10 +51,23 @@
       conversazione: [
         ['compratore', 'Ho rilanciato a 21.000. Prima della chiusura vorrei vedere la macchina piegare una lamiera da 8 mm: si può?', 1]
       ]
+    },
+    /* Una pratica su un lotto, perche' comprare ventiquattro portatili non e'
+       comprare una macchina: si tratta sul prezzo a pezzo, e prima di firmare
+       si vuole sapere che fine hanno fatto i dati di chi li usava. */
+    {
+      assetId: 'FRM-INF-0210', codice: 'PRA-108120', stato: 'accettata',
+      tipo: 'proposta', importo: 5760, giorniFa: 4, visitaFra: 2,
+      conversazione: [
+        ['compratore', 'Buongiorno, ci servono venti postazioni per il nuovo ufficio. Sul lotto intero facciamo 240 € a macchina, quindi 5.760?', 4],
+        ['venditore', 'Ci sta, ma solo sul blocco da 24: sotto quel numero restiamo a 270. Vi mandiamo l\'elenco delle matricole con la salute delle batterie una per una.', 3],
+        ['compratore', 'Va bene per le 24. Una domanda: la cancellazione dei dati com\'è documentata? Ci serve per il nostro registro dei trattamenti.', 3],
+        ['venditore', 'Rapporto NIST 800-88 per matricola, firmato dal tecnico. Ve ne alleghiamo uno di esempio: se lo approvate, blocchiamo il prezzo.', 2]
+      ]
     }
   ];
 
-  var PREFERITI = ['FRM-CNC-0142', 'FRM-LAB-0410', 'FRM-ADD-0620'];
+  var PREFERITI = ['FRM-CNC-0142', 'FRM-PER-0287', 'FRM-LAB-0410', 'FRM-ADD-0620'];
 
   function semina() {
     var s = leggi();
@@ -114,7 +127,7 @@
   var TAPPE = [
     {
       titolo: 'Cerca la macchina',
-      testo: 'Trenta macchine usate per categoria, anno, ore e stato. I filtri stanno in un pannello, non addosso all\'elenco.',
+      testo: 'Cinquantacinque annunci: macchine, portatili, lotti di monitor e tastiere, arredo, cucine. Quattro famiglie in alto, i filtri fini in un pannello.',
       dove: 'catalogo.html', invito: 'Apri il listino'
     },
     {
@@ -124,7 +137,7 @@
     },
     {
       titolo: 'Tratta, o rilancia',
-      testo: 'Prezzo fisso, proposta libera o asta a tempo. Ogni pratica ha cinque tappe e una conversazione col venditore: ne trovi tre in corso.',
+      testo: 'Prezzo fisso, proposta libera o asta a tempo. Sui lotti si tratta sul prezzo a pezzo. Ogni pratica ha cinque tappe e una conversazione col venditore: ne trovi quattro in corso.',
       dove: 'acquisti.html', invito: 'Vedi le pratiche'
     },
     {
@@ -138,8 +151,8 @@
     var F = global.FERMO;
     var corpo =
       '<p class="tenue" style="margin-bottom:18px">' +
-        'Prototipo dimostrativo del mercato dei macchinari usati. ' +
-        'Venditori, macchine e prezzi sono inventati; non ci sono pagamenti né account.' +
+        'Prototipo dimostrativo del mercato dell\'attrezzatura da lavoro usata. ' +
+        'Venditori, attrezzature e prezzi sono inventati; non ci sono pagamenti né account.' +
       '</p>' +
       '<div class="pila pila--larga">' +
         TAPPE.map(function (t, i) {

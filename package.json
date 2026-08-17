@@ -2,11 +2,11 @@
   "name": "fermo",
   "version": "0.1.0",
   "private": true,
-  "description": "FERMO — il mercato dei macchinari industriali usati. Prototipo di presentazione, senza build.",
+  "description": "FERMO — il mercato dell'attrezzatura da lavoro usata, dal centro di lavoro al lotto di tastiere. Prototipo di presentazione, senza build.",
   "scripts": {
     "start": "python3 -m http.server 4173",
     "check": "node --check assets/js/data.js && node --check assets/js/core.js && node --check assets/js/demo.js && node --check assets/js/manifesto.js && node --check assets/js/catalogo.js && node --check assets/js/asset.js && node --check assets/js/pubblica.js && node --check assets/js/console.js && node --check assets/js/acquisti.js"
   },
-  "keywords": ["marketplace", "usato-industriale", "rivendita", "demo"],
+  "keywords": ["marketplace", "usato", "attrezzature", "informatica-ricondizionata", "lotti", "rivendita", "demo"],
   "license": "UNLICENSED"
 }

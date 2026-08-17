@@ -18,7 +18,7 @@
     contenuto.innerHTML =
       '<div class="vuoto">' +
         '<h3>Questa matricola non è a listino</h3>' +
-        '<p class="piccolo">Il collegamento può essere vecchio, oppure la macchina è già stata venduta.</p>' +
+        '<p class="piccolo">Il collegamento può essere vecchio, oppure l\'annuncio è già stato chiuso.</p>' +
         '<a class="btn btn--primario" href="catalogo.html" style="margin-top:14px">Torna al listino</a>' +
       '</div>';
     document.getElementById('pagina').classList.remove('pagina--azioni');
@@ -48,7 +48,8 @@
     incluso:        'Smontaggio e carico a carico del venditore',
     acquirente:     'Smontaggio e carico a carico dell\'acquirente',
     'gia-smontato': 'Già smontata, pronta al carico',
-    venditore:      'Smontaggio dal venditore, a preventivo'
+    venditore:      'Smontaggio dal venditore, a preventivo',
+    'non-serve':    'Nessuno smontaggio: si carica com\'è'
   };
 
   /* --------------------------------------------------------- calendario -- */
@@ -107,6 +108,20 @@
   var testoRitiro = a.ritiroFra === 0 ? 'Subito' : 'Fra ' + FERMO.fmt.giorni(a.ritiroFra);
   var testoGaranzia = a.garanzia ? FERMO.fmt.mesi(a.garanzia) + ' dal venditore' : 'Vista e piaciuta';
 
+  /* Su un lotto il prezzo del blocco non basta a decidere: la riga sotto la
+     cifra dice quanto viene il pezzo, che è il numero con cui si confronta. */
+  var perPezzo = FERMO.perPezzo(a);
+  var notaPrezzo = asta
+    ? 'Base ' + FERMO.fmt.euroTondo(a.asta.base) + ' · ' + a.asta.offerte + ' rilanci · ' +
+      'chiude fra ' + FERMO.fmt.giorni(a.asta.scadeFra)
+    : (sc != null && sc > 0.02
+        ? 'Da nuovo ' + FERMO.fmt.euroTondo(a.nuovo) + ' — risparmi il ' + Math.round(sc * 100) + ' %'
+        : 'Prezzo richiesto dal venditore');
+  if (perPezzo != null) {
+    notaPrezzo += ' · ' + FERMO.fmt.euroTondo(perPezzo) + ' a pezzo su ' + FERMO.fmt.pezzi(a.pezzi) +
+      ', in blocco';
+  }
+
   /* ------------------------------------------------------------- disegno -- */
   contenuto.innerHTML = '' +
   '<div class="doppia">' +
@@ -149,10 +164,10 @@
           '</div>' +
           '<div id="calendario-innesto">' + grigliaCalendario() + '</div>' +
           '<p class="campo__aiuto" id="nota-visita">Tocca il giorno in cui vuoi venire a vederla. ' +
-            'Il ferro usato si compra guardandolo: la visione non impegna a niente.</p>' +
+            'L\'usato si compra guardandolo: la visione non impegna a niente.</p>' +
           '<p class="campo__aiuto">' + (a.ritiroFra === 0
             ? 'Si può portare via subito dopo l\'accordo.'
-            : 'La macchina è ancora in esercizio: si ritira fra ' + FERMO.fmt.giorni(a.ritiroFra) + '.') +
+            : 'È ancora in servizio: si ritira fra ' + FERMO.fmt.giorni(a.ritiroFra) + '.') +
           '</p>' +
         '</div>' +
       '</div>' +
@@ -169,15 +184,7 @@
             '<span class="cifra cifra--piccola">' + FERMO.fmt.euroTondo(corrente) + '</span>' +
             '<span class="piccolo fioco">' + (asta ? 'offerta più alta' : 'IVA esclusa') + '</span>' +
           '</div>' +
-          '<p class="piccolo fioco" style="margin-bottom:16px">' +
-            (asta
-              ? 'Base ' + FERMO.fmt.euroTondo(a.asta.base) + ' · ' + a.asta.offerte + ' rilanci · ' +
-                'chiude fra ' + FERMO.fmt.giorni(a.asta.scadeFra)
-              : (sc != null && sc > 0.02
-                  ? 'Da nuova ' + FERMO.fmt.euroTondo(a.nuovo) + ' — risparmi il ' +
-                    Math.round(sc * 100) + ' %'
-                  : 'Prezzo richiesto dal venditore')) +
-          '</p>' +
+          '<p class="piccolo fioco" style="margin-bottom:16px">' + FERMO.esc(notaPrezzo) + '</p>' +
 
           (a.mod.length > 1 ?
           '<div class="campo">' +
@@ -210,7 +217,7 @@
             '<button class="btn btn--primario btn--largo" type="button" id="compra">Compra</button>' +
             '<button class="btn btn--largo" type="button" data-azione="preferito" id="salva" ' +
               'aria-pressed="' + (FERMO.preferito(a.id) ? 'true' : 'false') + '">' +
-              (FERMO.preferito(a.id) ? 'La segui ✓' : 'Segui questa macchina') + '</button>' +
+              (FERMO.preferito(a.id) ? 'Lo segui ✓' : 'Segui questo annuncio') + '</button>' +
           '</div>' +
           '<p class="campo__aiuto centrato">Nessun addebito: è una demo. ' +
             'La pratica finisce fra le tue.</p>' +
@@ -241,8 +248,12 @@
     '<div class="carta"><div class="scorre">' +
       '<table class="tabella tabella--chiave"><tbody>' + specifiche +
         '<tr><td>Anno di costruzione</td><td class="grassetto">' + (a.anno || '—') + '</td></tr>' +
-        (a.pezzi > 1 ? '<tr><td>Composizione del lotto</td><td class="grassetto">' +
-          FERMO.esc(FERMO.fmt.pezzi(a.pezzi)) + ', si vende in blocco</td></tr>' : '') +
+        (perPezzo != null
+          ? '<tr><td>Composizione del lotto</td><td class="grassetto">' +
+              FERMO.esc(FERMO.fmt.pezzi(a.pezzi)) + ', si vende in blocco</td></tr>' +
+            '<tr><td>Prezzo a pezzo</td><td class="grassetto">' +
+              FERMO.esc(FERMO.fmt.euroTondo(perPezzo)) + '</td></tr>'
+          : '') +
         '<tr><td>Stato dichiarato</td><td class="grassetto">' + FERMO.esc(cond.nome) + '</td></tr>' +
         '<tr><td>Ritirabile</td><td class="grassetto">' + FERMO.esc(testoRitiro) + '</td></tr>' +
         '<tr><td>Consegna</td><td class="grassetto">' + FERMO.esc(CONSEGNA[a.consegna] || '—') + '</td></tr>' +
@@ -282,7 +293,7 @@
   '</section>' +
 
   '<section class="sezione">' +
-    '<div class="capo"><h2>Macchine simili</h2></div>' +
+    '<div class="capo"><h2>Annunci simili</h2></div>' +
     '<div class="elenco-beni" id="simili"></div>' +
   '</section>';
 
@@ -301,7 +312,7 @@
   /* il pulsante «segui» dice anche in che stato è finito */
   document.addEventListener('fermo:preferiti', function () {
     var b = g('salva');
-    if (b) b.textContent = b.getAttribute('aria-pressed') === 'true' ? 'La segui ✓' : 'Segui questa macchina';
+    if (b) b.textContent = b.getAttribute('aria-pressed') === 'true' ? 'Lo segui ✓' : 'Segui questo annuncio';
   });
 
   /* ------------------------------------------------- importo per formula -- */
@@ -458,13 +469,32 @@
   g('compra').addEventListener('click', concludi);
   g('compra-fisso').addEventListener('click', concludi);
 
-  /* ------------------------------------------------------------- simili -- */
-  var simili = FERMO.catalogo().filter(function (x) {
-    return x.id !== a.id && (x.cat === a.cat || x.regione === a.regione);
-  }).slice(0, 4);
+  /* ------------------------------------------------------------- simili --
+     Con un listino che va dal tornio al bancale di tastiere, «stessa regione»
+     non è più una somiglianza: accostare un centro di lavoro a un lotto di
+     monitor perché stanno entrambi in Lombardia non aiuta nessuno. Conta
+     prima la categoria, poi la famiglia, e solo dopo la vicinanza. */
+  var famiglia = D.famigliaDi(a);
+  var simili = FERMO.catalogo()
+    .filter(function (x) {
+      return x.id !== a.id &&
+        (x.cat === a.cat || D.famigliaDi(x) === famiglia || x.regione === a.regione);
+    })
+    .map(function (x) {
+      var punti = (x.cat === a.cat ? 100 : 0) +
+                  (D.famigliaDi(x) === famiglia ? 40 : 0) +
+                  (x.regione === a.regione ? 12 : 0) +
+                  /* a pari categoria, il prezzo più vicino a questo */
+                  Math.max(0, 10 - Math.abs(Math.log((FERMO.prezzoCorrente(x) || 1) /
+                                                     (corrente || 1))) * 4);
+      return { bene: x, punti: punti };
+    })
+    .sort(function (x, y) { return y.punti - x.punti; })
+    .slice(0, 4)
+    .map(function (v) { return v.bene; });
   g('simili').innerHTML = simili.length
     ? simili.map(FERMO.scheda).join('')
-    : '<p class="tenue">Nessuna macchina simile a listino.</p>';
+    : '<p class="tenue">Nessun annuncio simile a listino.</p>';
 
   rifaiImporto();
 })();
