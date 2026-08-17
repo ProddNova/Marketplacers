@@ -1,14 +1,14 @@
 /* =============================================================================
    FERMO — regia della demo
-   Al primo accesso il marketplace deve sembrare in esercizio da mesi: richieste
-   in corso, conversazioni aperte, preferiti, decisioni gia' prese. Una demo che
-   parte vuota non fa capire il prodotto.
+   Al primo accesso il mercato deve sembrare in esercizio da mesi: pratiche in
+   corso, trattative aperte, macchine seguite, proposte gia' decise. Un listino
+   senza traffico non fa capire il prodotto.
    Gira prima di core.js: parla solo con FERMO_DATA e con localStorage.
    ========================================================================== */
 (function (global) {
   'use strict';
 
-  var CHIAVE = 'fermo.v1';
+  var CHIAVE = 'fermo.v2';
   var D = global.FERMO_DATA;
   var GIORNO = 86400000;
 
@@ -20,74 +20,69 @@
   }
 
   /* --------------------------------------------------------------- semina */
-  /* Tre richieste a stadi diversi del percorso, così l'avanzamento si vede
-     senza dover prima cliccare in giro. */
-  /* iniziaFra: giorni da oggi, negativi nel passato. La finestra di lavoro deve
-     concordare con lo stato — una commessa "in lavorazione" non può avere una
-     finestra già chiusa mentre il fornitore la racconta in corso. */
+  /* Tre pratiche a stadi diversi del percorso, così l'avanzamento si vede
+     senza dover prima cliccare in giro: una chiusa, una col denaro in
+     deposito e in attesa del ritiro, una proposta appena fatta. */
   var COPIONE = [
     {
-      assetId: 'FRM-TAG-0207', codice: 'ORD-104882', stato: 'consegnata',
-      quantita: 6, giorniFa: 21, iniziaFra: -17, durata: 1,
+      assetId: 'FRM-TAG-0207', codice: 'PRA-104882', stato: 'conclusa',
+      tipo: 'proposta', importo: 162000, giorniFa: 38, visitaFra: -30,
       conversazione: [
-        ['cliente',   'Buongiorno, allego il DXF: 42 pezzi in acciaio S355 da 8 mm. Riuscite entro venerdì?', 21],
-        ['fornitore', 'Ricevuto. Il nesting ci sta su una lastra sola, quindi confermiamo venerdì mattina. Vi giro il piano di taglio.', 21],
-        ['fornitore', 'Tagliato e sbavato. Ritiro dalle 8 alle 17, bancale al banco 3.', 17],
-        ['cliente',   'Ritirato oggi, tutto conforme. Grazie.', 16]
+        ['compratore', 'Buongiorno, saremmo interessati al laser. Possiamo vederlo in funzione e portare due nostri lamierati di prova?', 38],
+        ['venditore', 'Certo. Venite martedì mattina, la macchina è in produzione: vi facciamo tagliare i vostri pezzi e vi diamo i report della sorgente.', 37],
+        ['compratore', 'Visto martedì. Facciamo 162.000 con il cambio pallet e il chiller compresi?', 31],
+        ['venditore', 'Accettiamo a 162.000 se il ritiro resta entro luglio. Vi mandiamo il contratto.', 30],
+        ['venditore', 'Macchina caricata e partita stamattina. Buon lavoro.', 6]
       ]
     },
     {
-      assetId: 'FRM-ADD-0455', codice: 'ORD-107310', stato: 'lavorazione',
-      quantita: 18, giorniFa: 6, iniziaFra: -2, durata: 5,
+      assetId: 'FRM-MOV-0138', codice: 'PRA-107310', stato: 'deposito',
+      tipo: 'acquisto', importo: 18900, giorniFa: 9, visitaFra: -4,
       conversazione: [
-        ['cliente',   'Diciotto pezzi in PA2200, pareti da 2 mm. Serve la sabbiatura, la tintura no.', 6],
-        ['fornitore', 'Entrano nel riempimento di giovedì. Vi avviso a camera chiusa.', 5],
-        ['fornitore', 'Camera partita stanotte, raffreddamento fino a domani sera. Depolveriamo venerdì.', 1]
+        ['compratore', 'Confermo l\'acquisto al prezzo esposto. La batteria ha ancora la garanzia del costruttore?', 9],
+        ['venditore', 'Sì, fino a marzo 2027: vi giriamo il certificato con la fattura originale.', 8],
+        ['compratore', 'Perfetto, bonifico partito sul deposito della piattaforma.', 6],
+        ['venditore', 'Ricevuta la conferma del deposito. Consegna prevista giovedì prossimo, ci serve un\'ora e un piazzale libero.', 2]
       ]
     },
     {
-      assetId: 'FRM-MOV-0138', codice: 'ORD-108455', stato: 'in-attesa',
-      quantita: 2, giorniFa: 1, iniziaFra: 4, durata: 14,
+      assetId: 'FRM-DEF-0501', codice: 'PRA-108455', stato: 'inviata',
+      tipo: 'rilancio', importo: 21000, giorniFa: 1, visitaFra: 3,
       conversazione: [
-        ['cliente',   'Ci servirebbe per due settimane a partire da lunedì, consegna in cantiere a Treviglio. Fattibile?', 1]
+        ['compratore', 'Ho rilanciato a 21.000. Prima della chiusura vorrei vedere la macchina piegare una lamiera da 8 mm: si può?', 1]
       ]
     }
   ];
 
-  var PREFERITI = ['FRM-CNC-0142', 'FRM-LAB-0410', 'FRM-MAG-0021'];
+  var PREFERITI = ['FRM-CNC-0142', 'FRM-LAB-0410', 'FRM-ADD-0620'];
 
   function semina() {
     var s = leggi();
     if (s.seminato) return;
 
     s.preferiti = s.preferiti || [];
-    s.prenotazioni = s.prenotazioni || [];
+    s.acquisti = s.acquisti || [];
     s.messaggi = s.messaggi || {};
     s.annunci = s.annunci || [];
     s.decisioni = s.decisioni || {};
-    if (!s.ruolo) s.ruolo = 'cliente';
+    if (!s.ruolo) s.ruolo = 'compratore';
 
     COPIONE.forEach(function (c) {
       var a = D.byId(c.assetId);
       if (!a) return;
-      var inizio = new Date(Date.now() + c.iniziaFra * GIORNO);
-      var fine = new Date(inizio.getTime() + Math.max(0, c.durata - 1) * GIORNO);
-      var imponibile = a.prezzo.valore * c.quantita;
-      var netto = imponibile * (1 + D.COMMISSIONE + D.ASSICURAZIONE);
+      var imponibile = c.importo + D.PERIZIA;
 
-      s.prenotazioni.push({
+      s.acquisti.push({
         codice: c.codice,
         assetId: a.id,
         titolo: a.titolo,
-        fornitore: a.fornitore,
+        venditore: a.venditore,
         citta: a.citta,
-        modalita: a.mod[0],
-        quantita: c.quantita,
-        unita: a.prezzo.unita,
-        inizio: inizio.toISOString(),
-        fine: fine.toISOString(),
-        totale: netto * (1 + D.IVA),
-        tipo: 'prenotazione',
+        formula: a.mod[0],
+        importo: c.importo,
+        totale: imponibile * (1 + D.IVA),
+        visita: new Date(Date.now() + c.visitaFra * GIORNO).toISOString(),
+        tipo: c.tipo,
         stato: c.stato,
         creata: new Date(Date.now() - c.giorniFa * GIORNO).toISOString()
       });
@@ -98,15 +93,15 @@
     });
 
     /* le più recenti in cima, come le mostra la pagina */
-    s.prenotazioni.sort(function (x, y) { return new Date(y.creata) - new Date(x.creata); });
+    s.acquisti.sort(function (x, y) { return new Date(y.creata) - new Date(x.creata); });
 
     PREFERITI.forEach(function (id) {
       if (D.byId(id) && s.preferiti.indexOf(id) === -1) s.preferiti.push(id);
     });
 
-    /* un po' di storico anche sulla console del fornitore */
-    s.decisioni['REQ-100'] = 'accettata';
-    s.decisioni['REQ-121'] = 'rifiutata';
+    /* un po' di storico anche sulla console del venditore */
+    s.decisioni['OFF-100'] = 'accettata';
+    s.decisioni['OFF-121'] = 'rifiutata';
 
     s.seminato = true;
     scrivi(s);
@@ -118,23 +113,23 @@
      al contenuto. */
   var TAPPE = [
     {
-      titolo: 'Cerca capacità ferma',
-      testo: 'Trenta macchine reali per categoria, città e disponibilità. I filtri stanno in un pannello, non addosso all\'elenco.',
-      dove: 'catalogo.html', invito: 'Apri il catalogo'
+      titolo: 'Cerca la macchina',
+      testo: 'Trenta macchine usate per categoria, anno, ore e stato. I filtri stanno in un pannello, non addosso all\'elenco.',
+      dove: 'catalogo.html', invito: 'Apri il listino'
     },
     {
-      titolo: 'Chiedi un preventivo',
-      testo: 'Scegli il giorno nel calendario e la quantità: commissione, copertura e IVA si ricalcolano mentre scegli.',
+      titolo: 'Vedila prima di comprarla',
+      testo: 'Sulla scheda prenoti la visione in sede, chiedi la perizia indipendente e vedi il conto completo: trasporto, smontaggio, IVA.',
       dove: 'asset.html?id=FRM-CNC-0142', invito: 'Guarda una scheda'
     },
     {
-      titolo: 'Segui la richiesta',
-      testo: 'Ogni richiesta ha un avanzamento in cinque tappe e una conversazione col fornitore. Ne trovi tre già in corso.',
-      dove: 'prenotazioni.html', invito: 'Vedi le richieste'
+      titolo: 'Tratta, o rilancia',
+      testo: 'Prezzo fisso, proposta libera o asta a tempo. Ogni pratica ha cinque tappe e una conversazione col venditore: ne trovi tre in corso.',
+      dove: 'acquisti.html', invito: 'Vedi le pratiche'
     },
     {
       titolo: 'Passa dall\'altro lato',
-      testo: 'Da fornitore vedi transato, occupazione per macchina e le richieste da accettare. Oppure pubblichi una macchina tua.',
+      testo: 'Da venditore vedi il valore a listino, le visite alle schede e le proposte da accettare. Oppure metti in vendita una macchina tua.',
       dove: 'console.html', invito: 'Entra nella console'
     }
   ];
@@ -143,8 +138,8 @@
     var F = global.FERMO;
     var corpo =
       '<p class="tenue" style="margin-bottom:18px">' +
-        'Prototipo dimostrativo del marketplace della capacità inutilizzata. ' +
-        'Fornitori, prezzi e disponibilità sono inventati; non ci sono pagamenti né account.' +
+        'Prototipo dimostrativo del mercato dei macchinari usati. ' +
+        'Venditori, macchine e prezzi sono inventati; non ci sono pagamenti né account.' +
       '</p>' +
       '<div class="pila pila--larga">' +
         TAPPE.map(function (t, i) {

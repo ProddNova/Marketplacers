@@ -1,8 +1,8 @@
 /* =============================================================================
-   FERMO — scheda del singolo bene
+   FERMO — scheda della singola macchina
    Sul telefono la pagina è una colonna sola nell'ordine in cui si decide:
-   che cos'è, quando è libera, quanto costa. Il prezzo e il pulsante di
-   prenotazione restano fissi in basso, così non si perdono mai di vista.
+   che cos'è, in che stato è, quando la puoi vedere, quanto costa portarla via.
+   Il prezzo e il pulsante restano fissi in basso, così non si perdono di vista.
    ========================================================================== */
 (function () {
   'use strict';
@@ -17,24 +17,39 @@
     g('briciola').textContent = 'scheda non trovata';
     contenuto.innerHTML =
       '<div class="vuoto">' +
-        '<h3>Questa matricola non è a catalogo</h3>' +
-        '<p class="piccolo">Il collegamento può essere vecchio, o la scheda è stata ritirata.</p>' +
-        '<a class="btn btn--primario" href="catalogo.html" style="margin-top:14px">Torna al catalogo</a>' +
+        '<h3>Questa matricola non è a listino</h3>' +
+        '<p class="piccolo">Il collegamento può essere vecchio, oppure la macchina è già stata venduta.</p>' +
+        '<a class="btn btn--primario" href="catalogo.html" style="margin-top:14px">Torna al listino</a>' +
       '</div>';
     document.getElementById('pagina').classList.remove('pagina--azioni');
     return;
   }
 
   var cat = D.categoria(a.cat);
-  var u = FERMO.fmt.unita(a.prezzo.unita);
-  var inVendita = a.prezzo.unita === 'corpo';
-  var prezzoTesto = inVendita ? FERMO.fmt.euroTondo(a.prezzo.valore) : FERMO.fmt.euro(a.prezzo.valore);
+  var cond = D.condizione(a.condizione);
+  var asta = FERMO.inAsta(a);
+  var corrente = FERMO.prezzoCorrente(a);
+  var sc = FERMO.sconto(a);
   document.title = a.titolo + ' — FERMO';
   g('briciola').textContent = cat.breve;
 
-  var modScelta = a.mod[0];
-  var scelto = null;                      /* indice del giorno di inizio */
+  /* La formula di partenza: se è all'asta si rilancia, altrimenti si compra
+     al prezzo esposto e in mancanza di quello si tratta. */
+  var formulaScelta = asta ? 'asta' : (a.mod.indexOf('fisso') !== -1 ? 'fisso' : 'trattativa');
+  var visitaScelta = null;                /* indice del giorno di visione */
   var cal = D.calendario(a, 28);
+
+  var CONSEGNA = {
+    ritiro:  'Ritiro a carico dell\'acquirente',
+    inclusa: 'Consegna compresa nel prezzo',
+    accordo: 'Trasporto da concordare'
+  };
+  var SMONTAGGIO = {
+    incluso:        'Smontaggio e carico a carico del venditore',
+    acquirente:     'Smontaggio e carico a carico dell\'acquirente',
+    'gia-smontato': 'Già smontata, pronta al carico',
+    venditore:      'Smontaggio dal venditore, a preventivo'
+  };
 
   /* --------------------------------------------------------- calendario -- */
   function grigliaCalendario() {
@@ -44,15 +59,17 @@
     var vuoti = '';
     for (var v = 0; v < cal[0].dow; v++) vuoti += '<div></div>';
     var celle = cal.map(function (x, i) {
-      var libero = x.stato === 'libero' || x.stato === 'parziale';
+      var libero = x.stato === 'libero' || x.stato === 'mezza';
       var etichetta = x.data.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' }) +
-        ' — ' + ({ libero: 'libero', parziale: 'parzialmente libero', occupato: 'occupato',
-                   chiuso: 'non prenotabile' })[x.stato];
-      return '<button class="giorno" type="button" data-stato="' + x.stato + '" data-i="' + i + '" ' +
+        ' — ' + ({ libero: 'visione libera', mezza: 'solo mattina', occupato: 'già occupato',
+                   chiuso: 'chiuso' })[x.stato] +
+        (x.ritirabile ? ', ritirabile' : ', non ancora ritirabile');
+      return '<button class="giorno" type="button" data-stato="' +
+        (x.stato === 'mezza' ? 'parziale' : x.stato) + '" data-i="' + i + '" ' +
         (libero ? '' : 'disabled ') +
-        'aria-pressed="' + (scelto === i ? 'true' : 'false') + '" title="' + FERMO.esc(etichetta) + '">' +
+        'aria-pressed="' + (visitaScelta === i ? 'true' : 'false') + '" title="' + FERMO.esc(etichetta) + '">' +
         '<span>' + x.data.getDate() + '</span>' +
-        '<small>' + (x.stato === 'parziale' ? x.oreLibere + 'h' : x.stato === 'libero' ? 'lib' : '—') + '</small>' +
+        '<small>' + (x.stato === 'mezza' ? 'am' : x.stato === 'libero' ? 'ok' : '—') + '</small>' +
       '</button>';
     }).join('');
     return '<div class="calendario">' + testa + vuoti + celle + '</div>';
@@ -60,18 +77,13 @@
 
   /* ------------------------------------------------------------- pezzi ---- */
   var pillole = a.mod.map(function (m) {
-    var md = D.modalita(m);
-    var stile = m === 'vendita' ? ' pillola--accento' : m === 'servizio' ? ' pillola--blu' : '';
-    return '<span class="pillola' + stile + '">' + FERMO.esc(md.nome) + '</span>';
+    var f = D.formula(m);
+    var stile = m === 'asta' ? ' pillola--ambra' : m === 'trattativa' ? ' pillola--blu' : '';
+    return '<span class="pillola' + stile + '">' + FERMO.esc(f.nome) + '</span>';
   }).join('') +
-    (a.verificato ? '<span class="pillola pillola--verde">✓ Fornitore verificato</span>' : '') +
+    '<span class="pillola">' + FERMO.esc(cond.nome) + '</span>' +
+    (a.verificato ? '<span class="pillola pillola--verde">✓ Venditore verificato</span>' : '') +
     (a.origine === 'utente' ? '<span class="pillola pillola--accento">Tuo annuncio</span>' : '');
-
-  var LOGISTICA = {
-    'in-sede': 'Si lavora in sede del fornitore',
-    'spedizione': 'Il cliente spedisce i pezzi',
-    'ritiro': 'Ritiro e riconsegna sul posto'
-  };
 
   function fatto(nome, valore) {
     return '<div><div class="piccolo fioco">' + FERMO.esc(nome) + '</div>' +
@@ -92,6 +104,9 @@
     }).join('') + '</ul>';
   }
 
+  var testoRitiro = a.ritiroFra === 0 ? 'Subito' : 'Fra ' + FERMO.fmt.giorni(a.ritiroFra);
+  var testoGaranzia = a.garanzia ? FERMO.fmt.mesi(a.garanzia) + ' dal venditore' : 'Vista e piaciuta';
+
   /* ------------------------------------------------------------- disegno -- */
   contenuto.innerHTML = '' +
   '<div class="doppia">' +
@@ -106,107 +121,113 @@
           '<div class="riga" style="gap:6px;margin-bottom:12px">' + pillole + '</div>' +
           '<h1 style="font-size:clamp(22px,5.5vw,30px)">' + FERMO.esc(a.titolo) + '</h1>' +
           '<p class="piccolo tenue" style="margin:10px 0 14px">' +
-            FERMO.esc(a.fornitore) + ' · ' + FERMO.esc(a.citta) + ' (' + FERMO.esc(a.prov) + ')' +
+            FERMO.esc(a.venditore) + ' · ' + FERMO.esc(a.citta) + ' (' + FERMO.esc(a.prov) + ')' +
             ' · sul mercato dal ' + a.dal +
-            (a.recensioni ? ' · ★ ' + a.rating.toFixed(1) + ' su ' + a.recensioni + ' lavori' : '') +
+            (a.recensioni ? ' · ★ ' + a.rating.toFixed(1) + ' su ' + a.recensioni + ' vendite' : '') +
           '</p>' +
           '<p class="tenue">' + FERMO.esc(a.sintesi) + '</p>' +
-          (a.oreSettimana ? '<div style="margin-top:16px">' + FERMO.misuraSaturazione(a) + '</div>' : '') +
+          '<div style="margin-top:16px">' + FERMO.misuraCondizione(a) + '</div>' +
         '</div>' +
         '<div class="carta__piede">' +
           '<div class="griglia griglia--2" style="gap:14px">' +
-            fatto('Impegno minimo', a.minimo) +
-            fatto('Preavviso', a.preavviso + ' giorni') +
-            fatto('Logistica', LOGISTICA[a.logistica] || '—') +
-            fatto('Categoria', cat.nome) +
+            fatto('Anno', a.anno ? String(a.anno) : '—') +
+            fatto('Contatore', FERMO.fmt.contatore(a) || 'Non presente') +
+            fatto('Ritirabile', testoRitiro) +
+            fatto('Garanzia', testoGaranzia) +
           '</div>' +
         '</div>' +
       '</div>' +
 
-      (inVendita ? '' :
       '<div class="carta" id="blocco-calendario">' +
-        '<div class="carta__testa">Quando è libera' +
+        '<div class="carta__testa">Quando puoi vederla' +
           '<span class="spinta piccolo fioco">prossimi 28 giorni</span></div>' +
         '<div class="carta__corpo">' +
           '<div class="riga" style="gap:6px;margin-bottom:14px">' +
             '<span class="pillola">Libero</span>' +
-            '<span class="pillola pillola--ambra">Parziale</span>' +
+            '<span class="pillola pillola--ambra">Solo mattina</span>' +
             '<span class="pillola">Occupato</span>' +
           '</div>' +
           '<div id="calendario-innesto">' + grigliaCalendario() + '</div>' +
-          '<p class="campo__aiuto">Tocca il giorno di inizio. I giorni entro il preavviso di ' +
-            a.preavviso + ' giorni non sono prenotabili.</p>' +
+          '<p class="campo__aiuto" id="nota-visita">Tocca il giorno in cui vuoi venire a vederla. ' +
+            'Il ferro usato si compra guardandolo: la visione non impegna a niente.</p>' +
+          '<p class="campo__aiuto">' + (a.ritiroFra === 0
+            ? 'Si può portare via subito dopo l\'accordo.'
+            : 'La macchina è ancora in esercizio: si ritira fra ' + FERMO.fmt.giorni(a.ritiroFra) + '.') +
+          '</p>' +
         '</div>' +
-      '</div>') +
+      '</div>' +
 
     '</div>' +
 
     /* ------------------------------------------ colonna: quanto costa */
     '<div class="pila attaccata">' +
-      '<div class="carta carta--rilievo" id="preventivo" data-id="' + FERMO.esc(a.id) + '">' +
-        '<div class="carta__testa">' + (inVendita ? 'Fai una proposta' : 'Preventivo') + '</div>' +
+      '<div class="carta carta--rilievo" id="acquisto" data-id="' + FERMO.esc(a.id) + '">' +
+        '<div class="carta__testa">' + (asta ? 'Asta in corso' : 'Prezzo e conto') + '</div>' +
         '<div class="carta__corpo">' +
 
-          '<div class="riga riga--fra" style="margin-bottom:16px">' +
-            '<span class="cifra cifra--piccola">' + prezzoTesto +
-              ' <span class="piccolo fioco" style="font-weight:500">' + FERMO.esc(u.suffisso) + '</span></span>' +
-            '<span class="piccolo fioco">min. ' + FERMO.esc(a.minimo) + '</span>' +
+          '<div class="riga riga--fra" style="margin-bottom:4px">' +
+            '<span class="cifra cifra--piccola">' + FERMO.fmt.euroTondo(corrente) + '</span>' +
+            '<span class="piccolo fioco">' + (asta ? 'offerta più alta' : 'IVA esclusa') + '</span>' +
           '</div>' +
+          '<p class="piccolo fioco" style="margin-bottom:16px">' +
+            (asta
+              ? 'Base ' + FERMO.fmt.euroTondo(a.asta.base) + ' · ' + a.asta.offerte + ' rilanci · ' +
+                'chiude fra ' + FERMO.fmt.giorni(a.asta.scadeFra)
+              : (sc != null && sc > 0.02
+                  ? 'Da nuova ' + FERMO.fmt.euroTondo(a.nuovo) + ' — risparmi il ' +
+                    Math.round(sc * 100) + ' %'
+                  : 'Prezzo richiesto dal venditore')) +
+          '</p>' +
 
           (a.mod.length > 1 ?
           '<div class="campo">' +
-            '<span class="campo__nome">Modalità</span>' +
-            '<div class="riga" style="gap:8px">' + a.mod.map(function (m, i) {
-              return '<button class="chip" type="button" data-modalita="' + m + '" aria-pressed="' +
-                (i === 0 ? 'true' : 'false') + '">' + FERMO.esc(D.modalita(m).nome) + '</button>';
+            '<span class="campo__nome">Come vuoi chiuderla</span>' +
+            '<div class="riga" style="gap:8px">' + a.mod.map(function (m) {
+              return '<button class="chip" type="button" data-formula="' + m + '" aria-pressed="' +
+                (m === formulaScelta ? 'true' : 'false') + '">' +
+                FERMO.esc(D.formula(m).nome) + '</button>';
             }).join('') + '</div>' +
-            '<span class="campo__aiuto" id="nota-modalita"></span>' +
-          '</div>' : '<p class="campo__aiuto" id="nota-modalita" style="margin-top:0"></p>') +
+            '<span class="campo__aiuto" id="nota-formula"></span>' +
+          '</div>' : '<p class="campo__aiuto" id="nota-formula" style="margin-top:0"></p>') +
 
-          (inVendita ?
-          '<label class="campo"><span class="campo__nome">La tua offerta (€)</span>' +
-            '<input type="number" id="quantita" min="0" step="100" value="' + a.prezzo.valore + '">' +
-            '<span class="campo__aiuto">Prezzo richiesto ' + FERMO.fmt.euroTondo(a.prezzo.valore) +
-              '. Sotto il 15 % le proposte vengono raramente accettate.</span>' +
-          '</label>'
-          :
-          '<label class="campo"><span class="campo__nome">' + FERMO.esc(u.quantita) + '</span>' +
-            '<input type="number" id="quantita" min="1" step="1" value="' + quantitaIniziale() + '">' +
-            '<span class="campo__aiuto" id="finestra">—</span>' +
-          '</label>') +
+          '<div id="blocco-importo"></div>' +
 
           '<div class="campo">' +
-            '<span class="campo__nome">Opzioni</span>' +
-            (inVendita ? '' :
-            '<label class="spunta"><input type="checkbox" id="opt-assicurazione" checked> ' +
-              'Copertura danni (3,5 %)</label>') +
+            '<span class="campo__nome">Servizi</span>' +
+            '<label class="spunta"><input type="checkbox" id="opt-perizia" checked> ' +
+              'Perizia indipendente (' + FERMO.fmt.euroTondo(D.PERIZIA) + ')</label>' +
+            (a.consegna === 'inclusa' ? '' :
             '<label class="spunta"><input type="checkbox" id="opt-trasporto"> ' +
-              'Trasporto andata e ritorno (180 €)</label>' +
+              'Trasporto in Italia (stima ' + FERMO.fmt.euroTondo(D.TRASPORTO) + ')</label>') +
+            (a.smontaggio === 'acquirente' || a.smontaggio === 'venditore' ?
+            '<label class="spunta"><input type="checkbox" id="opt-smontaggio"> ' +
+              'Smontaggio e carico (stima ' + FERMO.fmt.euroTondo(D.SMONTAGGIO) + ')</label>' : '') +
           '</div>' +
 
           '<table class="tabella tabella--conto" id="conto" style="margin-top:6px"></table>' +
 
           '<div class="pila pila--fitta" style="margin-top:18px">' +
-            '<button class="btn btn--primario btn--largo" type="button" id="prenota">' +
-              (inVendita ? 'Invia la proposta' : 'Prenota') + '</button>' +
+            '<button class="btn btn--primario btn--largo" type="button" id="compra">Compra</button>' +
             '<button class="btn btn--largo" type="button" data-azione="preferito" id="salva" ' +
               'aria-pressed="' + (FERMO.preferito(a.id) ? 'true' : 'false') + '">' +
-              (FERMO.preferito(a.id) ? 'Salvato ✓' : 'Salva tra i preferiti') + '</button>' +
+              (FERMO.preferito(a.id) ? 'La segui ✓' : 'Segui questa macchina') + '</button>' +
           '</div>' +
           '<p class="campo__aiuto centrato">Nessun addebito: è una demo. ' +
-            'La richiesta finisce fra le tue.</p>' +
+            'La pratica finisce fra le tue.</p>' +
         '</div>' +
       '</div>' +
 
       '<div class="carta">' +
-        '<div class="carta__testa">Il fornitore</div>' +
+        '<div class="carta__testa">Il venditore</div>' +
         '<div class="carta__corpo pila pila--fitta">' +
-          '<strong>' + FERMO.esc(a.fornitore) + '</strong>' +
+          '<strong>' + FERMO.esc(a.venditore) + '</strong>' +
           '<span class="piccolo tenue">' + FERMO.esc(a.citta) + ' (' + FERMO.esc(a.prov) + ') · ' +
             FERMO.esc(a.regione) + ' · sul mercato dal ' + a.dal + '</span>' +
           (a.recensioni ?
             '<div class="riga riga--fra piccolo"><span class="tenue">Valutazione</span>' +
-            '<span class="num grassetto">★ ' + a.rating.toFixed(1) + ' / 5 · ' + a.recensioni + ' lavori</span></div>' : '') +
+            '<span class="num grassetto">★ ' + a.rating.toFixed(1) + ' / 5 · ' + a.recensioni + ' vendite</span></div>' : '') +
+          '<div class="riga riga--fra piccolo"><span class="tenue">Perché la vende</span>' +
+            '<span class="grassetto" style="text-align:right">' + FERMO.esc(D.motivo(a.motivo)) + '</span></div>' +
           '<div class="riga riga--fra piccolo"><span class="tenue">Risposta media</span>' +
             '<span class="grassetto">' + (a.verificato ? 'entro 6 ore' : 'entro 2 giorni') + '</span></div>' +
         '</div>' +
@@ -219,43 +240,49 @@
     '<div class="capo"><h2>Scheda tecnica</h2></div>' +
     '<div class="carta"><div class="scorre">' +
       '<table class="tabella tabella--chiave"><tbody>' + specifiche +
-        '<tr><td>Impegno minimo</td><td class="grassetto">' + FERMO.esc(a.minimo) + '</td></tr>' +
-        '<tr><td>Preavviso</td><td class="grassetto">' + a.preavviso + ' giorni</td></tr>' +
-        '<tr><td>Logistica</td><td class="grassetto">' + FERMO.esc(LOGISTICA[a.logistica] || '—') + '</td></tr>' +
+        '<tr><td>Anno di costruzione</td><td class="grassetto">' + (a.anno || '—') + '</td></tr>' +
+        (a.pezzi > 1 ? '<tr><td>Composizione del lotto</td><td class="grassetto">' +
+          FERMO.esc(FERMO.fmt.pezzi(a.pezzi)) + ', si vende in blocco</td></tr>' : '') +
+        '<tr><td>Stato dichiarato</td><td class="grassetto">' + FERMO.esc(cond.nome) + '</td></tr>' +
+        '<tr><td>Ritirabile</td><td class="grassetto">' + FERMO.esc(testoRitiro) + '</td></tr>' +
+        '<tr><td>Consegna</td><td class="grassetto">' + FERMO.esc(CONSEGNA[a.consegna] || '—') + '</td></tr>' +
+        '<tr><td>Smontaggio</td><td class="grassetto">' + FERMO.esc(SMONTAGGIO[a.smontaggio] || '—') + '</td></tr>' +
+        '<tr><td>Garanzia</td><td class="grassetto">' + FERMO.esc(testoGaranzia) + '</td></tr>' +
+        '<tr><td>Motivo della vendita</td><td class="grassetto">' + FERMO.esc(D.motivo(a.motivo)) + '</td></tr>' +
       '</tbody></table>' +
     '</div></div>' +
 
     '<div class="griglia griglia--auto" style="margin-top:16px">' +
       '<div class="carta"><div class="carta__testa">Compreso nel prezzo</div>' +
         '<div class="carta__corpo">' + elenco(a.incluso, true) + '</div></div>' +
-      '<div class="carta"><div class="carta__testa">A parte</div>' +
+      '<div class="carta"><div class="carta__testa">A carico dell\'acquirente</div>' +
         '<div class="carta__corpo">' + elenco(a.escluso, false) + '</div></div>' +
     '</div>' +
 
     (a.certificazioni.length ?
-    '<div class="carta" style="margin-top:16px"><div class="carta__testa">Certificazioni</div>' +
+    '<div class="carta" style="margin-top:16px"><div class="carta__testa">Documenti e conformità</div>' +
       '<div class="carta__corpo riga" style="gap:8px">' + a.certificazioni.map(function (c) {
         return '<span class="pillola pillola--verde">' + FERMO.esc(c) + '</span>';
       }).join('') + '</div></div>' : '') +
   '</section>' +
 
   '<section class="sezione">' +
-    '<div class="capo"><h2>Chi ci ha lavorato</h2>' +
-      '<span class="capo__nota">' + (a.recensioni ? a.recensioni + ' lavori valutati' : 'nessuno storico') + '</span></div>' +
+    '<div class="capo"><h2>Chi ha comprato da questo venditore</h2>' +
+      '<span class="capo__nota">' + (a.recensioni ? a.recensioni + ' vendite valutate' : 'nessuno storico') + '</span></div>' +
     '<div class="carta"><div class="carta__corpo">' +
       (a.recensioni ?
         '<div class="riga" style="gap:14px;padding-bottom:14px;margin-bottom:16px;' +
              'border-bottom:1px solid var(--bordo)">' +
           '<span class="cifra cifra--piccola">' + a.rating.toFixed(1) + '</span>' +
           '<div>' + FERMO.stelle(a.rating) +
-            '<div class="piccolo fioco">su ' + a.recensioni + ' lavori conclusi</div></div>' +
+            '<div class="piccolo fioco">su ' + a.recensioni + ' vendite concluse</div></div>' +
         '</div>' : '') +
       FERMO.muroRecensioni(a) +
     '</div></div>' +
   '</section>' +
 
   '<section class="sezione">' +
-    '<div class="capo"><h2>Capacità simile</h2></div>' +
+    '<div class="capo"><h2>Macchine simili</h2></div>' +
     '<div class="elenco-beni" id="simili"></div>' +
   '</section>';
 
@@ -264,41 +291,66 @@
   barra.className = 'azioni-fisse';
   barra.innerHTML =
     '<div class="azioni-fisse__prezzo">' +
-      '<div class="grassetto num" style="font-size:18px">' + prezzoTesto + '</div>' +
-      '<div class="piccolo fioco">' + FERMO.esc(u.suffisso.replace(/^ /, '')) + '</div>' +
+      '<div class="grassetto num" style="font-size:18px">' + FERMO.fmt.euroTondo(corrente) + '</div>' +
+      '<div class="piccolo fioco">' + (asta ? 'offerta più alta' : 'IVA esclusa') + '</div>' +
     '</div>' +
-    '<button class="btn btn--primario spinta" type="button" id="prenota-fisso">' +
-      (inVendita ? 'Fai una proposta' : 'Prenota') + '</button>';
+    '<button class="btn btn--primario spinta" type="button" id="compra-fisso">Compra</button>';
   document.body.appendChild(barra);
   document.body.classList.add('ha-azioni');
 
-  /* il pulsante «salva» dice anche in che stato è finito */
+  /* il pulsante «segui» dice anche in che stato è finito */
   document.addEventListener('fermo:preferiti', function () {
     var b = g('salva');
-    if (b) b.textContent = b.getAttribute('aria-pressed') === 'true' ? 'Salvato ✓' : 'Salva tra i preferiti';
+    if (b) b.textContent = b.getAttribute('aria-pressed') === 'true' ? 'La segui ✓' : 'Segui questa macchina';
   });
 
-  /* ------------------------------------------------------ dati derivati -- */
-  function quantitaIniziale() {
-    var m = String(a.minimo).match(/\d+/);
-    return m ? parseInt(m[0], 10) : 1;
+  /* ------------------------------------------------- importo per formula -- */
+  /* Prezzo fisso: non c'è niente da scrivere, il numero è quello.
+     Trattativa: scrivi la tua proposta e vedi subito quanto stai chiedendo.
+     Asta: il rilancio parte dal minimo consentito.                          */
+  var minimoRilancio = asta ? corrente + a.asta.rilancio : 0;
+
+  function corpoImporto() {
+    if (formulaScelta === 'fisso') {
+      return '<div class="avviso avviso--ok" style="margin-bottom:16px">' +
+        '<span><strong>Prezzo bloccato.</strong> ' + FERMO.fmt.euroTondo(a.prezzo) +
+        ' più IVA: chi accetta per primo se la prende.</span></div>';
+    }
+    if (formulaScelta === 'asta') {
+      return '<label class="campo"><span class="campo__nome">Il tuo rilancio (€)</span>' +
+        '<input type="number" id="importo" min="' + minimoRilancio + '" step="' + a.asta.rilancio +
+          '" value="' + minimoRilancio + '">' +
+        '<span class="campo__aiuto" id="nota-importo">Minimo ' + FERMO.fmt.euroTondo(minimoRilancio) +
+          ': offerta più alta più un rilancio da ' + FERMO.fmt.euroTondo(a.asta.rilancio) + '.</span>' +
+      '</label>';
+    }
+    var partenza = Math.round(a.prezzo * 0.9 / 100) * 100;
+    return '<label class="campo"><span class="campo__nome">La tua proposta (€)</span>' +
+      '<input type="number" id="importo" min="0" step="100" value="' + partenza + '">' +
+      '<span class="campo__aiuto" id="nota-importo">—</span>' +
+    '</label>';
   }
 
-  var elQuantita = g('quantita');
-  var elConto = g('conto');
-  var elFinestra = g('finestra');
-  var elAss = g('opt-assicurazione');
-  var elTra = g('opt-trasporto');
-  var notaMod = g('nota-modalita');
+  function importoAttuale() {
+    if (formulaScelta === 'fisso') return a.prezzo;
+    var campo = g('importo');
+    return campo ? (parseFloat(campo.value) || 0) : 0;
+  }
 
-  function finestra() {
-    if (inVendita || scelto === null) return null;
-    var q = Math.max(1, parseInt(elQuantita.value, 10) || 1);
-    var inizio = cal[scelto].data;
-    var giorni = { ora: 1, giorno: q, settimana: q * 7, mese: q * 30, pezzo: Math.ceil(q / 50),
-                   m3mese: q ? 30 : 1, palletmese: 30, km: 1 }[a.prezzo.unita] || 1;
-    var fine = new Date(inizio.getTime() + Math.max(0, giorni - 1) * 86400000);
-    return { inizio: inizio, fine: fine };
+  var ETICHETTA = { fisso: 'Compra ora', trattativa: 'Invia la proposta', asta: 'Rilancia' };
+
+  /* -------------------------------------------------------- dati derivati */
+  var elConto = g('conto');
+  var notaFormula = g('nota-formula');
+  var pannelloAcq = g('acquisto');
+
+  function extra() {
+    var t = g('opt-trasporto'), s = g('opt-smontaggio'), p = g('opt-perizia');
+    return {
+      perizia: !!(p && p.checked),
+      trasporto: !!(t && t.checked),
+      smontaggio: !!(s && s.checked)
+    };
   }
 
   function riga(k, v) {
@@ -306,103 +358,105 @@
   }
 
   function aggiorna() {
-    var q = Math.max(inVendita ? 0 : 1, parseFloat(elQuantita.value) || 0);
-    var p;
+    var importo = importoAttuale();
+    var p = FERMO.preventivo(a, importo, extra());
 
-    if (inVendita) {
-      var sconto = 1 - q / a.prezzo.valore;
-      p = { imponibile: q, commissione: q * D.COMMISSIONE, assicurazione: 0,
-            trasporto: elTra.checked ? 180 : 0 };
-      p.netto = p.imponibile + p.commissione + p.trasporto;
-      p.iva = p.netto * D.IVA;
-      p.totale = p.netto + p.iva;
-      elConto.innerHTML =
-        riga('Offerta', FERMO.fmt.euroTondo(p.imponibile)) +
-        riga('Scarto sul richiesto', (sconto >= 0 ? '−' : '+') + Math.abs(sconto * 100).toFixed(1) + ' %') +
-        riga('Commissione 9 %', FERMO.fmt.euro(p.commissione)) +
-        (p.trasporto ? riga('Trasporto', FERMO.fmt.euro(p.trasporto)) : '') +
-        riga('IVA 22 %', FERMO.fmt.euro(p.iva)) +
-        riga('Totale se accettata', FERMO.fmt.euroTondo(p.totale));
-    } else {
-      p = FERMO.preventivo(a, q, { assicurazione: elAss.checked, trasporto: elTra.checked });
-      elConto.innerHTML =
-        riga(q + ' × ' + FERMO.fmt.euro(a.prezzo.valore), FERMO.fmt.euro(p.imponibile)) +
-        riga('Commissione 9 %', FERMO.fmt.euro(p.commissione)) +
-        (p.assicurazione ? riga('Copertura danni', FERMO.fmt.euro(p.assicurazione)) : '') +
-        (p.trasporto ? riga('Trasporto', FERMO.fmt.euro(p.trasporto)) : '') +
-        riga('IVA 22 %', FERMO.fmt.euro(p.iva)) +
-        riga('Totale', FERMO.fmt.euro(p.totale));
+    elConto.innerHTML =
+      riga(formulaScelta === 'asta' ? 'Rilancio' : formulaScelta === 'trattativa' ? 'La tua proposta' : 'Prezzo',
+        FERMO.fmt.euroTondo(p.prezzo)) +
+      (p.perizia ? riga('Perizia indipendente', FERMO.fmt.euro(p.perizia)) : '') +
+      (p.trasporto ? riga('Trasporto (stima)', FERMO.fmt.euro(p.trasporto)) : '') +
+      (p.smontaggio ? riga('Smontaggio e carico (stima)', FERMO.fmt.euro(p.smontaggio)) : '') +
+      riga('IVA 22 %', FERMO.fmt.euro(p.iva)) +
+      riga({ fisso: 'Totale', trattativa: 'Totale se accettata', asta: 'Totale se te la aggiudichi' }[formulaScelta],
+        FERMO.fmt.euroTondo(p.totale));
 
-      var f = finestra();
-      elFinestra.textContent = f
-        ? 'Dal ' + FERMO.fmt.data(f.inizio) + ' al ' + FERMO.fmt.data(f.fine)
-        : 'Scegli il giorno di inizio nel calendario.';
+    var nota = g('nota-importo');
+    if (nota) {
+      if (formulaScelta === 'trattativa') {
+        var scarto = 1 - importo / a.prezzo;
+        nota.textContent = importo > 0
+          ? 'Richiesto ' + FERMO.fmt.euroTondo(a.prezzo) + ': stai offrendo il ' +
+            Math.abs(scarto * 100).toFixed(1) + ' % ' + (scarto >= 0 ? 'in meno' : 'in più') +
+            (scarto > 0.2 ? '. Sotto il 20 % le proposte vengono raramente accettate.' : '.')
+          : 'Scrivi quanto sei disposto a pagare.';
+      } else if (formulaScelta === 'asta' && importo < minimoRilancio) {
+        nota.textContent = 'Troppo basso: il minimo è ' + FERMO.fmt.euroTondo(minimoRilancio) + '.';
+      }
     }
 
-    if (notaMod) notaMod.textContent = D.modalita(modScelta).nota;
+    if (notaFormula) notaFormula.textContent = D.formula(formulaScelta).nota;
+
+    var etichetta = ETICHETTA[formulaScelta];
+    g('compra').textContent = etichetta;
+    g('compra-fisso').textContent = etichetta;
     return p;
   }
 
+  function rifaiImporto() {
+    g('blocco-importo').innerHTML = corpoImporto();
+    aggiorna();
+  }
+
   /* -------------------------------------------------------- interazioni -- */
-  var pannelloPrev = g('preventivo');
-  pannelloPrev.addEventListener('input', aggiorna);
-  pannelloPrev.addEventListener('change', aggiorna);
-  pannelloPrev.addEventListener('click', function (e) {
-    var b = e.target.closest('[data-modalita]');
+  pannelloAcq.addEventListener('input', aggiorna);
+  pannelloAcq.addEventListener('change', aggiorna);
+  pannelloAcq.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-formula]');
     if (!b) return;
-    modScelta = b.getAttribute('data-modalita');
-    Array.prototype.forEach.call(pannelloPrev.querySelectorAll('[data-modalita]'), function (x) {
+    formulaScelta = b.getAttribute('data-formula');
+    Array.prototype.forEach.call(pannelloAcq.querySelectorAll('[data-formula]'), function (x) {
       x.setAttribute('aria-pressed', x === b ? 'true' : 'false');
     });
-    aggiorna();
+    rifaiImporto();
   });
 
   var innesto = g('calendario-innesto');
-  if (innesto) {
-    innesto.addEventListener('click', function (e) {
-      var b = e.target.closest('.giorno');
-      if (!b || b.disabled) return;
-      scelto = parseInt(b.getAttribute('data-i'), 10);
-      innesto.innerHTML = grigliaCalendario();
-      aggiorna();
-    });
-  }
+  innesto.addEventListener('click', function (e) {
+    var b = e.target.closest('.giorno');
+    if (!b || b.disabled) return;
+    visitaScelta = parseInt(b.getAttribute('data-i'), 10);
+    innesto.innerHTML = grigliaCalendario();
+    var giorno = cal[visitaScelta];
+    g('nota-visita').textContent = 'Visione richiesta per ' + FERMO.fmt.data(giorno.data) +
+      (giorno.stato === 'mezza' ? ', al mattino.' : '.') +
+      (giorno.ritirabile ? ' Quel giorno la macchina è già ritirabile.'
+                         : ' Quel giorno si può vedere ma non ancora portare via.');
+  });
 
-  function prenota() {
-    var q = parseFloat(elQuantita.value) || 0;
-    if (!inVendita && scelto === null) {
-      FERMO.brindisi('Manca la data', 'Scegli il giorno di inizio nel calendario.');
-      var bc = g('blocco-calendario');
-      if (bc) bc.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  function concludi() {
+    var importo = importoAttuale();
+    if (importo <= 0) {
+      FERMO.brindisi('Importo non valido', 'Scrivi quanto sei disposto a pagare.');
       return;
     }
-    if (q <= 0) {
-      FERMO.brindisi('Quantità non valida', 'Inserisci un valore maggiore di zero.');
+    if (formulaScelta === 'asta' && importo < minimoRilancio) {
+      FERMO.brindisi('Rilancio troppo basso', 'Il minimo è ' + FERMO.fmt.euroTondo(minimoRilancio) + '.');
       return;
     }
     var p = aggiorna();
-    var f = finestra();
-    var codice = FERMO.nuovaPrenotazione({
+    var codice = FERMO.nuovoAcquisto({
       assetId: a.id,
       titolo: a.titolo,
-      fornitore: a.fornitore,
+      venditore: a.venditore,
       citta: a.citta,
-      modalita: modScelta,
-      quantita: q,
-      unita: a.prezzo.unita,
-      inizio: f ? f.inizio.toISOString() : null,
-      fine: f ? f.fine.toISOString() : null,
+      formula: formulaScelta,
+      importo: importo,
       totale: p.totale,
-      tipo: inVendita ? 'offerta' : 'prenotazione'
+      visita: visitaScelta !== null ? cal[visitaScelta].data.toISOString() : null,
+      tipo: formulaScelta === 'fisso' ? 'acquisto' : formulaScelta === 'asta' ? 'rilancio' : 'proposta'
     });
-    FERMO.brindisi(inVendita ? 'Proposta inviata · ' + codice : 'Richiesta inviata · ' + codice,
-      inVendita ? 'Il fornitore risponde entro 48 ore.'
-                : 'In attesa di conferma dal fornitore.');
-    setTimeout(function () { location.href = 'prenotazioni.html'; }, 1100);
+    var messaggi = {
+      fisso:      ['Acquisto avviato · ' + codice, 'Il venditore conferma la disponibilità entro 24 ore.'],
+      trattativa: ['Proposta inviata · ' + codice, 'Il venditore risponde entro 48 ore.'],
+      asta:       ['Rilancio registrato · ' + codice, 'Ti avvisiamo se qualcuno ti supera.']
+    };
+    FERMO.brindisi(messaggi[formulaScelta][0], messaggi[formulaScelta][1]);
+    setTimeout(function () { location.href = 'acquisti.html'; }, 1100);
   }
 
-  g('prenota').addEventListener('click', prenota);
-  g('prenota-fisso').addEventListener('click', prenota);
+  g('compra').addEventListener('click', concludi);
+  g('compra-fisso').addEventListener('click', concludi);
 
   /* ------------------------------------------------------------- simili -- */
   var simili = FERMO.catalogo().filter(function (x) {
@@ -410,7 +464,7 @@
   }).slice(0, 4);
   g('simili').innerHTML = simili.length
     ? simili.map(FERMO.scheda).join('')
-    : '<p class="tenue">Nessuna scheda simile a catalogo.</p>';
+    : '<p class="tenue">Nessuna macchina simile a listino.</p>';
 
-  aggiorna();
+  rifaiImporto();
 })();

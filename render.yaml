@@ -72,6 +72,9 @@ services:
         source: /catalogo
         destination: /catalogo.html
       - type: rewrite
+        source: /listino
+        destination: /catalogo.html
+      - type: rewrite
         source: /scheda
         destination: /asset.html
       - type: rewrite
@@ -81,8 +84,8 @@ services:
         source: /console
         destination: /console.html
       - type: rewrite
-        source: /richieste
-        destination: /prenotazioni.html
+        source: /acquisti
+        destination: /acquisti.html
       - type: rewrite
-        source: /prenotazioni
-        destination: /prenotazioni.html
+        source: /vendi
+        destination: /pubblica.html

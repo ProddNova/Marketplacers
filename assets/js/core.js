@@ -7,15 +7,15 @@
   'use strict';
 
   var D = global.FERMO_DATA;
-  var CHIAVE = 'fermo.v1';
+  var CHIAVE = 'fermo.v2';
 
   /* ====================================================== STATO LOCALE ===== */
   var vuoto = {
-    preferiti: [], prenotazioni: [], annunci: [], tema: null, visti: [],
-    ruolo: 'cliente',      /* cliente | fornitore */
-    messaggi: {},          /* codice ordine → elenco messaggi */
-    decisioni: {},         /* codice richiesta → accettata | rifiutata */
-    richiesteAperte: 0,    /* conteggio per il bollo in navigazione */
+    preferiti: [], acquisti: [], annunci: [], tema: null,
+    ruolo: 'compratore',   /* compratore | venditore */
+    messaggi: {},          /* codice pratica → elenco messaggi */
+    decisioni: {},         /* codice proposta → accettata | rifiutata */
+    offerteAperte: 0,      /* conteggio per il bollo in navigazione */
     seminato: false,       /* la demo si popola una volta sola */
     tour: false            /* visita guidata gia' vista */
   };
@@ -43,7 +43,7 @@
     azzera: function () { try { localStorage.removeItem(CHIAVE); } catch (e) {} }
   };
 
-  /* Catalogo = dataset di base + annunci pubblicati dall'utente in questa demo */
+  /* Listino = dataset di base + annunci pubblicati dall'utente in questa demo */
   function catalogo() {
     var miei = store.tutto().annunci || [];
     return miei.concat(D.ASSET);
@@ -59,24 +59,19 @@
   var fEuroTondo = new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
   var fNum = new Intl.NumberFormat('it-IT');
 
-  var UNITA = {
-    ora:        { suffisso: '/ora',            quantita: 'Ore',        singolo: 'ora',       plurale: 'ore' },
-    giorno:     { suffisso: '/giorno',         quantita: 'Giorni',     singolo: 'giorno',    plurale: 'giorni' },
-    settimana:  { suffisso: '/settimana',      quantita: 'Settimane',  singolo: 'settimana', plurale: 'settimane' },
-    mese:       { suffisso: '/mese',           quantita: 'Mesi',       singolo: 'mese',      plurale: 'mesi' },
-    pezzo:      { suffisso: '/pezzo',          quantita: 'Pezzi',      singolo: 'pezzo',     plurale: 'pezzi' },
-    m3mese:     { suffisso: '/m³ al mese',     quantita: 'Metri cubi', singolo: 'm³',        plurale: 'm³' },
-    palletmese: { suffisso: '/pallet al mese', quantita: 'Pallet',     singolo: 'pallet',    plurale: 'pallet' },
-    km:         { suffisso: '/km',             quantita: 'Chilometri', singolo: 'km',        plurale: 'km' },
-    corpo:      { suffisso: ' in blocco',      quantita: 'Lotti',      singolo: 'lotto',     plurale: 'lotti' }
+  /* Il contatore cambia nome da macchina a macchina: le ore di un mandrino,
+     i chilometri di un furgone, le battute di una pressa. */
+  var CONTATORI = {
+    ore:     { singolo: 'ora',     plurale: 'ore' },
+    km:      { singolo: 'km',      plurale: 'km' },
+    battute: { singolo: 'battuta', plurale: 'battute' },
+    cicli:   { singolo: 'ciclo',   plurale: 'cicli' }
   };
-  function unita(id) {
-    return UNITA[id] || { suffisso: '', quantita: 'Quantita\'', singolo: 'unita\'', plurale: 'unita\'' };
-  }
-  /* "1 ora" ma "6 ore": l'accordo si fa qui, non nei template */
-  function conta(n, id) {
-    var u = unita(id);
-    return fNum.format(n) + ' ' + (Math.abs(n) === 1 ? u.singolo : u.plurale);
+  function contatore(a) {
+    if (!a || !a.contatore || !a.contatore.valore) return '';
+    var u = CONTATORI[a.contatore.unita] || { singolo: a.contatore.unita, plurale: a.contatore.unita };
+    var v = a.contatore.valore;
+    return fNum.format(v) + ' ' + (Math.abs(v) === 1 ? u.singolo : u.plurale);
   }
 
   var fmt = {
@@ -90,8 +85,10 @@
     dataCorta: function (d) {
       return d.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' });
     },
-    unita: unita,
-    conta: conta
+    giorni: function (n) { return n === 1 ? '1 giorno' : fNum.format(n) + ' giorni'; },
+    mesi: function (n) { return n === 1 ? '1 mese' : fNum.format(n) + ' mesi'; },
+    pezzi: function (n) { return n === 1 ? '1 pezzo' : fNum.format(n) + ' pezzi'; },
+    contatore: contatore
   };
 
   /* HTML sicuro: tutto il testo variabile passa da qui */
@@ -99,6 +96,27 @@
     return String(s == null ? '' : s)
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  /* ============================================== PREZZO E RISPARMIO ======= */
+  /* In asta il prezzo che conta e' l'offerta piu' alta, non quello richiesto:
+     base piu' un rilancio per ogni offerta ricevuta. */
+  function offertaCorrente(a) {
+    if (!a.asta) return null;
+    return a.asta.base + a.asta.offerte * a.asta.rilancio;
+  }
+  function prezzoCorrente(a) {
+    var o = offertaCorrente(a);
+    return o == null ? a.prezzo : o;
+  }
+  function inAsta(a) { return !!a.asta && a.mod.indexOf('asta') !== -1; }
+  /* Quanto si risparmia rispetto alla stessa macchina nuova, oggi. */
+  function sconto(a) {
+    if (!a.nuovo) return null;
+    return Math.max(0, 1 - prezzoCorrente(a) / a.nuovo);
+  }
+  function eta(a) {
+    return a.anno ? new Date().getFullYear() - a.anno : null;
   }
 
   /* ============================================================ ICONE ====== */
@@ -124,7 +142,11 @@
     calendario: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/>',
     cestino:    '<path d="M4 7h16M10 4h4M6 7l1 13h10l1-13M10 11v6M14 11v6"/>',
     fabbrica:   '<path d="M3 21h18M4 21V9l6 4V9l6 4V6h4v15"/>',
-    ordina:     '<path d="M7 4v16M7 20l-3-3M7 20l3-3M17 20V4M17 4l-3 3M17 4l3 3"/>'
+    ordina:     '<path d="M7 4v16M7 20l-3-3M7 20l3-3M17 20V4M17 4l-3 3M17 4l3 3"/>',
+    /* mercato dell'usato: il martelletto dell'asta, il cartellino, il camion */
+    martello:   '<path d="M14 4l6 6M17 7l-8.5 8.5M11 5.5 15.5 10M3.5 20.5h9M6 18l7-7"/>',
+    cartellino: '<path d="M20.5 12.5 12 21l-9-9V3h9zM7.5 7.5h.01"/>',
+    camion:     '<path d="M2 17V6h11v11M13 9h4l4 4v4h-4"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/>'
   };
 
   function icona(nome, dim) {
@@ -145,6 +167,9 @@
     laser: '<rect x="16" y="52" width="88" height="16" rx="3"/><path d="M60 14v18"/><path d="M52 32h16v8H52z"/>' +
          '<path d="M60 40v12" stroke-dasharray="3 3"/><circle cx="60" cy="60" r="6"/>' +
          '<path d="M30 60h14M76 60h14"/><path d="M24 46v-8h72v8"/>',
+    /* pressa piegatrice: due montanti, la traversa che scende, la lamiera piegata */
+    pressa: '<path d="M22 70V14h16v56M82 70V14h16v56"/><path d="M38 24h44"/><rect x="38" y="30" width="44" height="12" rx="2"/>' +
+         '<path d="M60 42v8"/><path d="M46 58h28l-14-8z"/><path d="M30 70h60"/>',
     officina: '<rect x="12" y="46" width="96" height="8" rx="2"/><path d="M20 54v18M100 54v18"/>' +
          '<rect x="44" y="30" width="32" height="16" rx="2"/><path d="M52 30v-8h16v8"/>' +
          '<path d="M36 46h-8M92 46h8"/><path d="M60 22V10"/><path d="M54 14l6-6 6 6"/>',
@@ -170,45 +195,45 @@
   }
 
   /* ==================================================== RUOLI E PAGINE ===== */
-  /* Il marketplace ha due lati: chi cerca capacita' e chi ne cede. Il menu
-     cambia di conseguenza, perche' sono due prodotti che dividono un catalogo. */
+  /* Il mercato ha due lati: chi compra ferro usato e chi lo vende. Il menu
+     cambia di conseguenza, perche' sono due prodotti che dividono un listino. */
   var RUOLI = {
-    cliente: {
-      nome: 'Cliente',
-      altro: 'fornitore',
-      nota: 'Cerchi capacità: sfogli il catalogo, chiedi un preventivo, segui le tue richieste.',
-      pagine: [
-        { href: 'index.html',        nome: 'Home',      icona: 'casa' },
-        { href: 'catalogo.html',     nome: 'Cerca',     icona: 'lente' },
-        { href: 'prenotazioni.html', nome: 'Richieste', icona: 'lista', bollo: 'prenotazioni' }
-      ]
-    },
-    fornitore: {
-      nome: 'Fornitore',
-      altro: 'cliente',
-      nota: 'Hai capacità ferma: la pubblichi e decidi quali richieste accettare.',
+    compratore: {
+      nome: 'Compratore',
+      altro: 'venditore',
+      nota: 'Cerchi una macchina: sfogli il listino, prenoti una visione, fai la tua proposta.',
       pagine: [
         { href: 'index.html',    nome: 'Home',     icona: 'casa' },
-        { href: 'console.html',  nome: 'Console',  icona: 'cruscotto', bollo: 'richieste' },
-        { href: 'pubblica.html', nome: 'Pubblica', icona: 'piu' }
+        { href: 'catalogo.html', nome: 'Cerca',    icona: 'lente' },
+        { href: 'acquisti.html', nome: 'Acquisti', icona: 'lista', bollo: 'acquisti' }
+      ]
+    },
+    venditore: {
+      nome: 'Venditore',
+      altro: 'compratore',
+      nota: 'Hai ferro da vendere: lo metti a listino e decidi quali proposte accettare.',
+      pagine: [
+        { href: 'index.html',    nome: 'Home',    icona: 'casa' },
+        { href: 'console.html',  nome: 'Console', icona: 'cruscotto', bollo: 'offerte' },
+        { href: 'pubblica.html', nome: 'Vendi',   icona: 'piu' }
       ]
     }
   };
   /* Aprire una pagina dell'altro lato cambia ruolo da sola: nessun vicolo cieco. */
   var RUOLO_DI = {
-    'catalogo.html': 'cliente', 'prenotazioni.html': 'cliente', 'asset.html': 'cliente',
-    'console.html': 'fornitore', 'pubblica.html': 'fornitore'
+    'catalogo.html': 'compratore', 'acquisti.html': 'compratore', 'asset.html': 'compratore',
+    'console.html': 'venditore', 'pubblica.html': 'venditore'
   };
-  /* La scheda di un bene sta sotto "Cerca": la voce resta accesa. */
+  /* La scheda di una macchina sta sotto "Cerca": la voce resta accesa. */
   var TAB_DI = { 'asset.html': 'catalogo.html' };
 
-  function ruoloCorrente() { return RUOLI[store.tutto().ruolo] ? store.tutto().ruolo : 'cliente'; }
+  function ruoloCorrente() { return RUOLI[store.tutto().ruolo] ? store.tutto().ruolo : 'compratore'; }
 
   function bolli() {
     var s = store.tutto();
     return {
-      prenotazioni: s.prenotazioni.filter(function (x) { return x.stato !== 'annullata'; }).length,
-      richieste: s.richiesteAperte || 0
+      acquisti: s.acquisti.filter(function (x) { return x.stato !== 'annullata'; }).length,
+      offerte: s.offerteAperte || 0
     };
   }
 
@@ -300,7 +325,7 @@
             icona('cestino') + 'Azzera i dati della demo</button>' +
         '</div>' +
         '<p class="piccolo fioco" style="margin-top:16px">' +
-          'Prototipo dimostrativo: fornitori, prezzi e disponibilità sono inventati. ' +
+          'Prototipo dimostrativo: venditori, macchine e prezzi sono inventati. ' +
           'Quello che fai resta nel tuo browser.</p>'
     });
     p.addEventListener('click', function (e) {
@@ -318,7 +343,7 @@
         if (global.FERMO_DEMO) global.FERMO_DEMO.apriGuida();
       }
       if (azione === 'azzera') {
-        if (confirm('Cancello richieste, preferiti e annunci salvati in questo browser?')) {
+        if (confirm('Cancello acquisti, preferiti e annunci salvati in questo browser?')) {
           store.azzera();
           location.reload();
         }
@@ -381,7 +406,7 @@
     var px = function (lon) { return margine + (lon - lonMin) * kx * scala; };
     var py = function (lat) { return margine + (latMax - lat) * scala; };
 
-    /* raggruppo per citta': una sede, un punto, raggio per numero di schede */
+    /* raggruppo per citta': una sede, un punto, raggio per numero di macchine */
     var sedi = {};
     beni.forEach(function (b) {
       var c = D.coord(b.citta);
@@ -426,12 +451,12 @@
     var punti = elenco.sort(function (a, b) { return b.beni.length - a.beni.length; })
       .map(function (s) {
         var r = raggio(s.beni.length);
-        var ore = s.beni.reduce(function (t, b) { return t + b.oreLibere; }, 0);
+        var valore = s.beni.reduce(function (t, b) { return t + prezzoCorrente(b); }, 0);
         var etichetta = s.citta + ': ' + s.beni.length +
-          (s.beni.length === 1 ? ' scheda' : ' schede') + ', ' + ore + ' ore libere a settimana';
+          (s.beni.length === 1 ? ' macchina' : ' macchine') + ', ' + fmt.euroTondo(valore) + ' a listino';
         var grande = isolata(s);
         return '<g class="sede" tabindex="0" role="button" data-citta="' + esc(s.citta) + '" ' +
-            'aria-label="' + esc(etichetta) + '. Filtra il catalogo su questa città.">' +
+            'aria-label="' + esc(etichetta) + '. Filtra il listino su questa città.">' +
           '<title>' + esc(etichetta) + '</title>' +
           '<circle class="sede__alone" cx="' + px(s.lon).toFixed(1) + '" cy="' + py(s.lat).toFixed(1) +
             '" r="' + (r + 5).toFixed(1) + '"/>' +
@@ -444,17 +469,17 @@
 
     return '<svg class="quadro" viewBox="0 0 ' + L.toFixed(0) + ' ' + A.toFixed(0) + '" ' +
       'role="img" aria-label="' + esc(opzioni.descrizione ||
-        ('Quadro delle sedi: ' + elenco.length + ' città con capacità a catalogo')) + '">' +
+        ('Quadro delle sedi: ' + elenco.length + ' città con macchine a listino')) + '">' +
       rete + punti + '</svg>';
   }
 
-  /* ================================================ AVANZAMENTO RICHIESTA == */
+  /* ================================================ AVANZAMENTO PRATICA ==== */
   var TAPPE = [
-    { id: 'in-attesa',    nome: 'Richiesta inviata', breve: 'Inviata' },
-    { id: 'confermata',   nome: 'Confermata',        breve: 'Confermata' },
-    { id: 'lavorazione',  nome: 'In lavorazione',    breve: 'In corso' },
-    { id: 'consegnata',   nome: 'Consegnata',        breve: 'Consegnata' },
-    { id: 'pagata',       nome: 'Saldata',           breve: 'Saldata' }
+    { id: 'inviata',   nome: 'Proposta inviata',      breve: 'Inviata' },
+    { id: 'accettata', nome: 'Accettata dal venditore', breve: 'Accettata' },
+    { id: 'deposito',  nome: 'Pagamento in deposito', breve: 'In deposito' },
+    { id: 'ritiro',    nome: 'Ritiro concordato',     breve: 'Ritiro' },
+    { id: 'conclusa',  nome: 'Conclusa',              breve: 'Conclusa' }
   ];
   function indiceTappa(stato) {
     for (var i = 0; i < TAPPE.length; i++) if (TAPPE[i].id === stato) return i;
@@ -462,7 +487,7 @@
   }
   function linea(stato) {
     if (stato === 'annullata') {
-      return '<div class="avviso"><span>Percorso interrotto: la richiesta è stata annullata.</span></div>';
+      return '<div class="avviso"><span>Percorso interrotto: la pratica è stata annullata.</span></div>';
     }
     var qui = indiceTappa(stato);
     return '<ol class="percorso">' + TAPPE.map(function (t, i) {
@@ -486,7 +511,7 @@
   function muroRecensioni(a) {
     var voci = D.recensioni(a);
     if (!voci.length) {
-      return '<p class="tenue piccolo">Nessuna recensione: è una scheda appena pubblicata.</p>';
+      return '<p class="tenue piccolo">Nessuna recensione: è un venditore appena iscritto.</p>';
     }
     return '<div class="pila pila--larga">' + voci.map(function (v) {
       return '<article class="recensione">' +
@@ -507,14 +532,14 @@
     el.innerHTML =
       '<div class="piede__corpo">' +
         '<div>' +
-          '<strong>FERMO</strong> — marketplace della capacità inutilizzata.<br>' +
+          '<strong>FERMO</strong> — il mercato dei macchinari usati.<br>' +
           '<span class="fioco">Prototipo dimostrativo: dati inventati, nessun pagamento reale.</span>' +
         '</div>' +
         '<div class="riga" style="gap:14px">' +
-          '<a href="catalogo.html">Catalogo</a>' +
-          '<a href="pubblica.html">Pubblica</a>' +
+          '<a href="catalogo.html">Listino</a>' +
+          '<a href="pubblica.html">Vendi</a>' +
           '<a href="console.html">Console</a>' +
-          '<a href="prenotazioni.html">Richieste</a>' +
+          '<a href="acquisti.html">Acquisti</a>' +
         '</div>' +
       '</div>';
     document.body.appendChild(el);
@@ -554,30 +579,28 @@
   }
 
   /* ============================================================ SCHEDA ===== */
-  function saturazione(a) {
-    if (!a.oreSettimana) return 0;
-    return Math.max(0, Math.min(1, 1 - a.oreLibere / a.oreSettimana));
-  }
-  function livello(sat) {
-    if (sat < 0.4) return 'basso';
-    if (sat < 0.7) return 'medio';
-    if (sat < 0.9) return 'alto';
-    return 'pieno';
-  }
-
   /* Sul telefono è una riga con la figura a sinistra; da tablet in su la
      stessa marcatura diventa una scheda in colonna. Un solo componente. */
   function scheda(a) {
     var cat = D.categoria(a.cat);
-    var u = unita(a.prezzo.unita);
-    var prezzo = a.prezzo.unita === 'corpo' ? fmt.euroTondo(a.prezzo.valore) : fmt.euro(a.prezzo.valore);
+    var cond = D.condizione(a.condizione);
     var via = 'asset.html?id=' + encodeURIComponent(a.id);
+    var sc = sconto(a);
 
     var segni = [];
     if (a.origine === 'utente') segni.push('<span class="pillola pillola--accento">Tuo annuncio</span>');
-    if (a.verificato) segni.push('<span class="pillola pillola--verde">✓ Verificato</span>');
-    if (a.mod.indexOf('vendita') !== -1) segni.push('<span class="pillola">In vendita</span>');
-    else if (a.oreLibere) segni.push('<span class="pillola">' + a.oreLibere + ' h libere</span>');
+    if (inAsta(a)) {
+      segni.push('<span class="pillola pillola--ambra">Asta · ' +
+        (a.asta.scadeFra <= 1 ? 'ultimo giorno' : a.asta.scadeFra + ' giorni') + '</span>');
+    } else if (a.mod.indexOf('fisso') === -1) {
+      segni.push('<span class="pillola pillola--blu">Trattativa</span>');
+    }
+    segni.push('<span class="pillola">' + esc(cond.nome) + '</span>');
+    if (a.pezzi > 1) segni.push('<span class="pillola">' + fmt.pezzi(a.pezzi) + '</span>');
+
+    var sotto = inAsta(a)
+      ? 'offerta più alta · ' + a.asta.offerte + (a.asta.offerte === 1 ? ' rilancio' : ' rilanci')
+      : (sc != null && sc > 0.05 ? '−' + Math.round(sc * 100) + ' % dal nuovo' : 'IVA esclusa');
 
     return '' +
       '<article class="bene" data-id="' + esc(a.id) + '">' +
@@ -587,26 +610,39 @@
           'aria-label="Salva ' + esc(a.titolo) + ' tra i preferiti">' + icona('cuore') + '</button>' +
         '<div class="bene__corpo">' +
           '<a class="bene__titolo" href="' + via + '">' + esc(a.titolo) + '</a>' +
-          '<div class="bene__dove">' + esc(a.citta) + ' (' + esc(a.prov) + ') · ' + esc(cat.breve) + '</div>' +
+          '<div class="bene__dove">' + esc(a.citta) + ' (' + esc(a.prov) + ') · ' +
+            esc(cat.breve) + ' · ' + (a.anno || '—') + '</div>' +
           '<div class="riga" style="gap:6px">' + segni.join('') + '</div>' +
-          '<div class="bene__prezzo">' + prezzo + ' <small>' + esc(u.suffisso) + '</small></div>' +
+          '<div class="bene__prezzo">' + fmt.euroTondo(prezzoCorrente(a)) +
+            ' <small>' + esc(sotto) + '</small></div>' +
         '</div>' +
       '</article>';
   }
 
-  function misuraSaturazione(a) {
-    var sat = saturazione(a);
+  /* Vita residua dichiarata: il misuratore dice a colpo d'occhio se stai
+     comprando una macchina rodata o un cantiere. */
+  function livello(quota) {
+    if (quota >= 0.75) return 'ottimo';
+    if (quota >= 0.5) return 'buono';
+    if (quota >= 0.25) return 'scarso';
+    return 'critico';
+  }
+
+  function misuraCondizione(a) {
+    var cond = D.condizione(a.condizione);
+    var c = contatore(a);
     return '' +
       '<div class="metro">' +
         '<div class="metro__testa">' +
-          '<span>Occupazione</span>' +
-          '<span class="num">' + fmt.pct(sat) + ' · ' + a.oreLibere + ' h libere</span>' +
+          '<span>Stato dichiarato</span>' +
+          '<span class="num">' + esc(cond.nome) + (c ? ' · ' + esc(c) : '') + '</span>' +
         '</div>' +
-        '<div class="metro__traccia" role="img" aria-label="Occupazione ' + fmt.pct(sat) +
-          ', ' + a.oreLibere + ' ore libere su ' + a.oreSettimana + ' a settimana">' +
-          '<div class="metro__pieno" data-livello="' + livello(sat) + '" style="width:' +
-            (sat * 100).toFixed(1) + '%"></div>' +
+        '<div class="metro__traccia" role="img" aria-label="Stato ' + esc(cond.nome) +
+          ': vita residua stimata ' + fmt.pct(cond.quota) + '">' +
+          '<div class="metro__pieno" data-livello="' + livello(cond.quota) + '" style="width:' +
+            (cond.quota * 100).toFixed(1) + '%"></div>' +
         '</div>' +
+        '<span class="campo__aiuto">' + esc(cond.nota) + '</span>' +
       '</div>';
   }
 
@@ -705,33 +741,37 @@
       }).join('') + '</tbody></table></div></details>';
   }
 
-  /* ======================================================== PRENOTAZIONI === */
-  function preventivo(a, quantita, extra) {
+  /* ============================================================ ACQUISTO === */
+  /* Il conto del compratore: il prezzo pattuito piu' i servizi che sceglie.
+     La commissione non compare qui — la paga il venditore sul venduto. */
+  function preventivo(a, importo, extra) {
     extra = extra || {};
-    var imponibile = a.prezzo.valore * quantita;
-    var commissione = imponibile * D.COMMISSIONE;
-    var assicurazione = extra.assicurazione ? imponibile * D.ASSICURAZIONE : 0;
-    var trasporto = extra.trasporto ? 180 : 0;
-    var netto = imponibile + commissione + assicurazione + trasporto;
-    var iva = netto * D.IVA;
+    var perizia = extra.perizia ? D.PERIZIA : 0;
+    var trasporto = extra.trasporto ? D.TRASPORTO : 0;
+    var smontaggio = extra.smontaggio ? D.SMONTAGGIO : 0;
+    var imponibile = importo + perizia + trasporto + smontaggio;
+    var iva = imponibile * D.IVA;
     return {
-      imponibile: imponibile,
-      commissione: commissione,
-      assicurazione: assicurazione,
+      prezzo: importo,
+      perizia: perizia,
       trasporto: trasporto,
-      netto: netto,
+      smontaggio: smontaggio,
+      imponibile: imponibile,
       iva: iva,
-      totale: netto + iva
+      totale: imponibile + iva
     };
   }
 
-  function nuovaPrenotazione(dati) {
-    var codice = 'ORD-' + String(Date.now()).slice(-6);
+  /* Quello che resta al venditore, tolta la commissione della piattaforma. */
+  function nettoVenditore(importo) { return importo * (1 - D.COMMISSIONE); }
+
+  function nuovoAcquisto(dati) {
+    var codice = 'PRA-' + String(Date.now()).slice(-6);
     store.aggiorna(function (s) {
-      s.prenotazioni.unshift(Object.assign({
+      s.acquisti.unshift(Object.assign({
         codice: codice,
         creata: new Date().toISOString(),
-        stato: 'in-attesa'
+        stato: 'inviata'
       }, dati));
     });
     return codice;
@@ -768,8 +808,8 @@
       if (!art) return;
       var dentro = commutaPreferito(art.getAttribute('data-id'));
       b.setAttribute('aria-pressed', dentro ? 'true' : 'false');
-      brindisi(dentro ? 'Salvato' : 'Rimosso',
-        dentro ? 'Lo ritrovi in Richieste, sotto “Salvati”.' : 'Tolto dai preferiti.');
+      brindisi(dentro ? 'Salvata' : 'Rimossa',
+        dentro ? 'La ritrovi in Acquisti, sotto “Seguite”.' : 'Tolta dalle macchine seguite.');
       document.dispatchEvent(new CustomEvent('fermo:preferiti'));
     });
 
@@ -794,9 +834,13 @@
     icona: icona,
     glifo: glifo,
     scheda: scheda,
-    misuraSaturazione: misuraSaturazione,
-    saturazione: saturazione,
+    misuraCondizione: misuraCondizione,
     livello: livello,
+    prezzoCorrente: prezzoCorrente,
+    offertaCorrente: offertaCorrente,
+    inAsta: inAsta,
+    sconto: sconto,
+    eta: eta,
     colonne: colonne,
     barre: barre,
     tabellaDati: tabellaDati,
@@ -810,7 +854,8 @@
     pannello: pannello,
     apri: apri,
     preventivo: preventivo,
-    nuovaPrenotazione: nuovaPrenotazione,
+    nettoVenditore: nettoVenditore,
+    nuovoAcquisto: nuovoAcquisto,
     preferito: preferito,
     brindisi: brindisi,
     param: param,

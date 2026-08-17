@@ -1,5 +1,5 @@
 /* =============================================================================
-   FERMO — pubblicazione in quattro passaggi
+   FERMO — messa in vendita in quattro passaggi
    Un passaggio per schermata, l'anteprima sotto, i comandi fissi in basso:
    sul telefono si compila con una mano sola.
    ========================================================================== */
@@ -11,14 +11,26 @@
   var passo = 1, MAX = 4;
   var g = function (id) { return document.getElementById(id); };
 
-  var TITOLI = { 1: 'Che cosa cedi', 2: 'Dove e quanto', 3: 'Prezzo', 4: 'Dettagli e pubblicazione' };
+  var TITOLI = { 1: 'Che cosa vendi', 2: 'Stato e provenienza', 3: 'Prezzo e condizioni', 4: 'Dettagli e pubblicazione' };
 
   /* --------------------------------------------------- riempimento campi */
   g('f-cat').innerHTML = D.CATEGORIE.map(function (c) {
     return '<option value="' + c.id + '">' + FERMO.esc(c.nome) + '</option>';
   }).join('');
 
-  g('f-mod').innerHTML = D.MODALITA.map(function (m, i) {
+  g('f-condizione').innerHTML = D.CONDIZIONI.map(function (c, i) {
+    return '<option value="' + c.id + '"' + (i === 1 ? ' selected' : '') + '>' +
+      FERMO.esc(c.nome) + '</option>';
+  }).join('');
+
+  var MOTIVI = ['sostituzione', 'cambio-tecnologia', 'cambio-produzione', 'fine-commessa',
+                'accorpamento', 'trasloco', 'calo-ordini', 'liquidazione', 'pensionamento',
+                'rinnovo-flotta', 'sovradimensionamento'];
+  g('f-motivo').innerHTML = MOTIVI.map(function (m) {
+    return '<option value="' + m + '">' + FERMO.esc(D.motivo(m)) + '</option>';
+  }).join('');
+
+  g('f-mod').innerHTML = D.FORMULE.map(function (m, i) {
     return '<button class="chip" type="button" data-mod="' + m.id + '" aria-pressed="' +
       (i === 0 ? 'true' : 'false') + '">' + FERMO.esc(m.nome) + '</button>';
   }).join('');
@@ -30,7 +42,7 @@
     ridisegna();
   });
 
-  function modalitaScelte() {
+  function formuleScelte() {
     return Array.prototype.filter.call(g('f-mod').querySelectorAll('[data-mod]'), function (b) {
       return b.getAttribute('aria-pressed') === 'true';
     }).map(function (b) { return b.getAttribute('data-mod'); });
@@ -38,27 +50,38 @@
 
   /* -------------------------------------------------------- lettura form */
   function bozza() {
-    var oreTot = parseInt(g('f-ore-tot').value, 10) || 0;
-    var oreLib = Math.min(parseInt(g('f-ore-libere').value, 10) || 0, oreTot);
-    var unita = g('f-unita').value;
+    var mod = formuleScelte();
+    var conta = parseInt(g('f-contatore').value, 10) || 0;
     return {
       id: 'FRM-TUO-' + String(Date.now()).slice(-4),
       origine: 'utente',
       cat: g('f-cat').value,
-      mod: modalitaScelte(),
+      mod: mod,
       titolo: g('f-titolo').value.trim() || 'Annuncio senza titolo',
       citta: g('f-citta').value.trim() || 'Città',
       prov: g('f-prov').value.trim().toUpperCase() || '--',
       regione: '—',
-      fornitore: g('f-fornitore').value.trim() || 'La tua azienda',
+      venditore: g('f-venditore').value.trim() || 'La tua azienda',
       dal: new Date().getFullYear(),
       rating: 0, recensioni: 0, verificato: false,
-      prezzo: { valore: parseFloat(g('f-prezzo').value) || 0, unita: unita },
-      minimo: g('f-minimo').value.trim() || '—',
-      preavviso: parseInt(g('f-preavviso').value, 10) || 2,
-      oreSettimana: unita === 'corpo' ? 0 : oreTot,
-      oreLibere: unita === 'corpo' ? 0 : oreLib,
-      sintesi: g('f-sintesi').value.trim() || 'Capacità disponibile, contattaci per i dettagli.',
+      prezzo: parseFloat(g('f-prezzo').value) || 0,
+      nuovo: parseFloat(g('f-nuovo').value) || 0,
+      anno: parseInt(g('f-anno').value, 10) || new Date().getFullYear(),
+      contatore: conta ? { valore: conta, unita: g('f-contatore-unita').value } : null,
+      condizione: g('f-condizione').value,
+      pezzi: parseInt(g('f-pezzi').value, 10) || 1,
+      ritiroFra: parseInt(g('f-ritiro').value, 10) || 0,
+      garanzia: parseInt(g('f-garanzia').value, 10) || 0,
+      consegna: g('f-consegna').value,
+      smontaggio: g('f-smontaggio').value,
+      asta: mod.indexOf('asta') !== -1 ? {
+        base: parseFloat(g('f-base').value) || 0,
+        rilancio: parseFloat(g('f-rilancio').value) || 100,
+        scadeFra: parseInt(g('f-scadenza').value, 10) || 7,
+        offerte: 0
+      } : null,
+      sintesi: g('f-sintesi').value.trim() ||
+        'Macchina disponibile, contattaci per i dettagli e per una visione in sede.',
       specifiche: g('f-specifiche').value.split('\n').map(function (r) {
         var i = r.indexOf(':');
         return i === -1 ? null : [r.slice(0, i).trim(), r.slice(i + 1).trim()];
@@ -66,7 +89,7 @@
       certificazioni: lista(g('f-certificazioni').value),
       incluso: lista(g('f-incluso').value),
       escluso: lista(g('f-escluso').value),
-      logistica: g('f-logistica').value
+      motivo: g('f-motivo').value
     };
   }
   function lista(s) {
@@ -78,78 +101,70 @@
 
   function ridisegna() {
     var b = bozza();
-    g('anteprima').innerHTML = FERMO.scheda(b);
-    g('anteprima-saturazione').innerHTML = b.oreSettimana
-      ? FERMO.misuraSaturazione(b)
-      : '<p class="campo__aiuto" style="margin-top:0">Con la vendita in blocco l\'occupazione non si applica.</p>';
+    var scelte = formuleScelte();
 
-    var scelte = modalitaScelte();
+    /* i campi dell'asta compaiono solo se l'asta è tra le formule scelte */
+    g('blocco-asta').hidden = scelte.indexOf('asta') === -1;
+
+    g('anteprima').innerHTML = FERMO.scheda(b);
+    g('anteprima-condizione').innerHTML = FERMO.misuraCondizione(b);
+
     g('nota-mod').textContent = scelte.length
-      ? scelte.map(function (m) { return D.modalita(m).nota; }).join(' ')
+      ? scelte.map(function (m) { return D.formula(m).nota; }).join(' ')
       : 'Scegline almeno una.';
 
-    /* stima di ricavo: ore ferme × prezzo × 44 settimane, al netto del 9 % */
-    var settimane = 44;
-    var lordoSett, base;
-    switch (b.prezzo.unita) {
-      case 'ora':
-        lordoSett = b.oreLibere * b.prezzo.valore;
-        base = b.oreLibere + ' h ferme × ' + FERMO.fmt.euro(b.prezzo.valore); break;
-      case 'giorno':
-        lordoSett = (b.oreLibere / 8) * b.prezzo.valore;
-        base = (b.oreLibere / 8).toFixed(1) + ' gg × ' + FERMO.fmt.euro(b.prezzo.valore); break;
-      case 'settimana':
-        lordoSett = b.prezzo.valore * (b.oreSettimana ? b.oreLibere / b.oreSettimana : 0);
-        base = 'quota settimanale ceduta'; break;
-      case 'mese':
-        lordoSett = b.prezzo.valore / 4.33;
-        base = 'canone mensile ripartito'; break;
-      case 'corpo':
-        lordoSett = 0; base = 'vendita una tantum'; break;
-      default:
-        lordoSett = b.oreLibere * b.prezzo.valore / 4;
-        base = 'stima prudenziale sul volume';
-    }
-    var commissione = lordoSett * D.COMMISSIONE;
-    var netto = lordoSett - commissione;
+    /* Il conto del venditore: quanto entra davvero, e quanto del valore da
+       nuovo stai recuperando. In asta il riferimento è la base. */
+    var inAsta = scelte.indexOf('asta') !== -1;
+    var riferimento = inAsta && b.asta ? b.asta.base : b.prezzo;
+    var commissione = riferimento * D.COMMISSIONE;
+    var netto = FERMO.nettoVenditore(riferimento);
+    var recupero = b.nuovo ? riferimento / b.nuovo : null;
 
-    g('conto-anteprima').innerHTML = b.prezzo.unita === 'corpo'
-      ? riga('Prezzo richiesto', FERMO.fmt.euroTondo(b.prezzo.valore)) +
-        riga('Commissione 9 %', '−' + FERMO.fmt.euro(b.prezzo.valore * D.COMMISSIONE)) +
-        riga('Ti resta', FERMO.fmt.euroTondo(b.prezzo.valore * (1 - D.COMMISSIONE)))
-      : riga(base, FERMO.fmt.euro(lordoSett) + '/sett.') +
-        riga('Commissione 9 %', '−' + FERMO.fmt.euro(commissione)) +
-        riga('Su ' + settimane + ' settimane', FERMO.fmt.euroTondo(netto * settimane)) +
-        riga('Netto a settimana', FERMO.fmt.euro(netto));
+    g('conto-anteprima').innerHTML =
+      riga(inAsta ? 'Base d\'asta' : 'Prezzo richiesto', FERMO.fmt.euroTondo(riferimento)) +
+      riga('Commissione 6 %', '−' + FERMO.fmt.euro(commissione)) +
+      (recupero != null ? riga('Recupero sul valore da nuovo', FERMO.fmt.pct(recupero)) : '') +
+      riga('Ti resta', FERMO.fmt.euroTondo(netto));
 
     var st = g('stima');
     if (st) {
-      st.innerHTML = b.prezzo.unita === 'corpo'
-        ? '<span><strong>Vendita in blocco.</strong> Trattieni ' +
-          FERMO.fmt.euroTondo(b.prezzo.valore * (1 - D.COMMISSIONE)) +
-          ' sui ' + FERMO.fmt.euroTondo(b.prezzo.valore) + ' richiesti.</span>'
-        : '<span><strong>Se vendi tutte le ore ferme</strong> questo annuncio vale circa ' +
-          '<span class="num">' + FERMO.fmt.euroTondo(netto * settimane) + ' netti l\'anno</span> — ' +
-          FERMO.fmt.euro(netto) + ' a settimana, su ' + settimane + ' settimane lavorate.</span>';
+      st.innerHTML = inAsta
+        ? '<span><strong>Asta a tempo.</strong> Sotto ' + FERMO.fmt.euroTondo(b.asta.base) +
+          ' non si vende. Se chiude alla base ti restano ' + FERMO.fmt.euroTondo(netto) +
+          ', ogni rilancio da ' + FERMO.fmt.euroTondo(b.asta.rilancio) + ' te ne lascia ' +
+          FERMO.fmt.euro(b.asta.rilancio * (1 - D.COMMISSIONE)) + '.</span>'
+        : '<span><strong>A ' + FERMO.fmt.euroTondo(b.prezzo) + '</strong> ti restano ' +
+          '<span class="num">' + FERMO.fmt.euroTondo(netto) + ' netti</span>' +
+          (recupero != null
+            ? ', cioè il ' + FERMO.fmt.pct(recupero) + ' di quanto costa oggi la stessa macchina nuova.'
+            : '.') + '</span>';
     }
   }
 
   /* ---------------------------------------------------------- validazione */
+  var ANNO = new Date().getFullYear();
   var REGOLE = {
     1: [
       ['f-titolo', function (v) { return v.trim().length >= 8; }, 'Serve un titolo di almeno 8 caratteri.'],
-      ['f-mod', function () { return modalitaScelte().length > 0; }, 'Scegli almeno una modalità.']
+      ['f-mod', function () { return formuleScelte().length > 0; }, 'Scegli almeno un modo di venderla.']
     ],
     2: [
-      ['f-citta', function (v) { return v.trim().length >= 2; }, 'Indica la città.'],
+      ['f-anno', function (v) { return +v >= 1960 && +v <= ANNO; }, 'Un anno tra il 1960 e oggi.'],
+      ['f-citta', function (v) { return v.trim().length >= 2; }, 'Indica la città dove sta la macchina.'],
       ['f-prov', function (v) { return /^[A-Za-z]{2}$/.test(v.trim()); }, 'Due lettere, per esempio BS.'],
-      ['f-fornitore', function (v) { return v.trim().length >= 3; }, 'Indica la ragione sociale.'],
-      ['f-ore-tot', function (v) { return +v > 0 && +v <= 168; }, 'Tra 1 e 168 ore.'],
-      ['f-ore-libere', function (v) { return +v >= 0 && +v <= (+g('f-ore-tot').value || 0); },
-        'Le ore ferme non possono superare quelle disponibili.']
+      ['f-venditore', function (v) { return v.trim().length >= 3; }, 'Indica la ragione sociale.'],
+      ['f-pezzi', function (v) { return +v >= 1 && +v <= 99; }, 'Tra 1 e 99 pezzi.']
     ],
     3: [
-      ['f-prezzo', function (v) { return +v > 0; }, 'Il prezzo deve essere maggiore di zero.']
+      ['f-prezzo', function (v) { return +v > 0; }, 'Il prezzo deve essere maggiore di zero.'],
+      ['f-nuovo', function (v) {
+        return +v === 0 || +v >= (parseFloat(g('f-prezzo').value) || 0);
+      }, 'Il valore da nuovo non può essere sotto il prezzo richiesto.'],
+      ['f-base', function (v) {
+        if (formuleScelte().indexOf('asta') === -1) return true;
+        return +v > 0 && +v <= (parseFloat(g('f-prezzo').value) || 0);
+      }, 'La base d\'asta va sopra lo zero e non oltre il prezzo richiesto.']
     ],
     4: []
   };
@@ -159,6 +174,8 @@
     var primo = null;
     (REGOLE[n] || []).forEach(function (r) {
       var campo = g(r[0]);
+      /* i campi dell'asta esistono sempre, ma si validano solo se sono in scena */
+      if (campo.closest('[hidden]')) return;
       var valore = campo.value !== undefined ? campo.value : '';
       var buono = r[1](valore);
       var vecchio = campo.parentNode.querySelector('.campo__errore');
@@ -208,7 +225,7 @@
   function pubblica() {
     var b = bozza();
     FERMO.store.aggiorna(function (s) { s.annunci.unshift(b); });
-    FERMO.brindisi('Annuncio pubblicato · ' + b.id, 'È nel catalogo e nella tua console.');
+    FERMO.brindisi('Annuncio pubblicato · ' + b.id, 'È nel listino e nella tua console.');
     setTimeout(function () {
       location.href = 'asset.html?id=' + encodeURIComponent(b.id);
     }, 900);
