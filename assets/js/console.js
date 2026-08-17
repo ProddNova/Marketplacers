@@ -11,8 +11,13 @@
   var D = FERMO.D;
   var g = function (id) { return document.getElementById(id); };
 
-  /* Parco dimostrativo + tutto ciò che l'utente ha messo in vendita qui */
-  var DEMO = ['FRM-CNC-0142', 'FRM-TAG-0207', 'FRM-DEF-0501', 'FRM-VEI-0092', 'FRM-ADD-0455'];
+  /* Parco dimostrativo + tutto ciò che l'utente ha messo in vendita qui.
+     Dentro ci stanno di proposito beni di ordini di grandezza diversi — un
+     laser da 168.000 € e un lotto di tastiere da 720 € — perché è il caso
+     normale di chi svuota un capannone, e perché è lì che i grafici e la
+     colonna dei valori si vedono reggere o no. */
+  var DEMO = ['FRM-CNC-0142', 'FRM-TAG-0207', 'FRM-DEF-0501', 'FRM-VEI-0092', 'FRM-ADD-0455',
+              'FRM-INF-0210', 'FRM-PER-0287', 'FRM-RET-0142', 'FRM-UFF-0231'];
   var miei = (FERMO.store.tutto().annunci || []);
   var parco = miei.concat(DEMO.map(FERMO.trova).filter(Boolean));
 
@@ -35,7 +40,7 @@
     return interessi[i].giorni > interessi[best].giorni ? i : best;
   }, 0);
 
-  g('periodo').textContent = parco.length + ' macchine in vendita · ultime 12 settimane';
+  g('periodo').textContent = parco.length + ' annunci attivi · ultime 12 settimane';
   g('valore-totale').textContent = FERMO.fmt.euroTondo(valore);
   g('valore-nota').innerHTML = 'Se vendi tutto ti restano ' +
     '<strong>' + FERMO.fmt.euroTondo(netto) + '</strong> al netto della commissione del 6 %. ' +
@@ -61,12 +66,17 @@
       var r = D.rng(a.id + '|off');
       var quante = Math.floor(r() * 3);
       var base = FERMO.prezzoCorrente(a);
+      /* Le proposte si arrotondano a una cifra tonda, ma «tonda» dipende
+         dall'ordine di grandezza: su un laser da 168.000 € si offre a
+         multipli di 500, su un lotto di tastiere da 720 € a multipli di 10 —
+         altrimenti l'arrotondamento si mangia l'offerta. */
+      var passo = base >= 20000 ? 500 : base >= 2000 ? 100 : 10;
       for (var i = 0; i < quante; i++) {
         var asta = FERMO.inAsta(a);
         var precedente = asta ? base + i * a.asta.rilancio : null;
         var importo = asta
           ? precedente + a.asta.rilancio
-          : Math.round(base * (0.72 + r() * 0.23) / 100) * 100;
+          : Math.max(passo, Math.round(base * (0.72 + r() * 0.23) / passo) * passo);
         out.push({
           codice: 'OFF-' + (100 + k * 10 + i),
           assetId: a.id,
@@ -97,7 +107,7 @@
     var box = g('lista-proposte');
     if (!proposte.length) {
       box.innerHTML = '<div class="vuoto"><h3>Nessuna proposta aperta</h3>' +
-        '<p class="piccolo">Quando qualcuno fa un\'offerta su una tua macchina, compare qui.</p></div>';
+        '<p class="piccolo">Quando qualcuno fa un\'offerta su un tuo annuncio, compare qui.</p></div>';
       g('conteggio-proposte').textContent = '0 aperte';
       g('t-proposte').textContent = '0';
       return;
@@ -138,7 +148,7 @@
             '</div>' +
           '</div>' +
           '<div class="riga" style="gap:6px;margin-top:10px">' + ETICHETTA[r.tipo] +
-            (r.visita ? '<span class="pillola">Ha già visto la macchina</span>' : '') + '</div>' +
+            (r.visita ? '<span class="pillola">L\'ha già vista in sede</span>' : '') + '</div>' +
           '<div class="piccolo tenue" style="margin-top:10px">Scade il ' +
             FERMO.fmt.data(r.scade) + '</div>' +
           (d ? '' :

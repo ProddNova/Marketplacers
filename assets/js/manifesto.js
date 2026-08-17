@@ -14,11 +14,19 @@
   var province = {};
   tutti.forEach(function (a) { province[a.prov] = 1; });
 
+  /* Il prezzo più basso e quello più alto dicono in una riga sola l'ampiezza
+     del listino meglio di qualsiasi frase: sei euro una tastiera, centosessanta-
+     ottomila un laser, stesso mercato. */
+  var prezzi = tutti.map(FERMO.prezzoCorrente);
+  var minimo = Math.min.apply(null, prezzi);
+  var massimo = Math.max.apply(null, prezzi);
+
   var NUMERI = [
-    { nome: 'Macchine a listino', valore: FERMO.fmt.num(tutti.length), nota: 'schede pubblicate' },
+    { nome: 'Annunci a listino', valore: FERMO.fmt.num(tutti.length), nota: 'in 17 categorie' },
     { nome: 'Valore a listino', valore: FERMO.fmt.euroTondo(valore), nota: 'IVA esclusa' },
-    { nome: 'Province', valore: Object.keys(province).length, nota: 'dove sta il ferro' },
-    { nome: 'Scarto medio dal nuovo', valore: FERMO.fmt.pct(scontoMedio), nota: 'a parità di macchina' }
+    { nome: 'Si va da', valore: FERMO.fmt.euroTondo(minimo),
+      nota: 'fino a ' + FERMO.fmt.euroTondo(massimo) },
+    { nome: 'Province', valore: Object.keys(province).length, nota: 'dove sta la roba' }
   ];
   document.getElementById('numeri').innerHTML = NUMERI.map(function (m) {
     return '<div class="metrica">' +
@@ -44,20 +52,34 @@
     '</div>';
   }).join('');
 
-  /* ---------------------------------------------------------- categorie -- */
-  document.getElementById('categorie').innerHTML = D.CATEGORIE.map(function (c) {
+  /* ---------------------------------------------------------- categorie --
+     Diciassette tessere di fila non si guardano: si raggruppano per famiglia,
+     con la famiglia stessa cliccabile per chi vuole solo restringere il campo. */
+  function tessera(c) {
     var suoi = tutti.filter(function (a) { return a.cat === c.id; });
-    var da = suoi.length
-      ? Math.min.apply(null, suoi.map(FERMO.prezzoCorrente))
-      : 0;
+    var da = suoi.length ? Math.min.apply(null, suoi.map(FERMO.prezzoCorrente)) : 0;
     return '<a class="carta" href="catalogo.html?cat=' + c.id + '" style="text-decoration:none">' +
       '<div class="carta__corpo carta__corpo--fitto">' +
         '<div class="figurina">' + FERMO.glifo(c.glifo) + '</div>' +
         '<div class="grassetto" style="margin-top:8px;font-size:15px">' + FERMO.esc(c.nome) + '</div>' +
-        '<div class="piccolo fioco num">' + suoi.length + ' schede' +
+        '<div class="piccolo fioco num">' + suoi.length + (suoi.length === 1 ? ' scheda' : ' schede') +
           (suoi.length ? ' · da ' + FERMO.fmt.euroTondo(da) : '') + '</div>' +
       '</div>' +
     '</a>';
+  }
+
+  document.getElementById('categorie').innerHTML = D.FAMIGLIE.map(function (f) {
+    var suoi = tutti.filter(function (a) { return D.famigliaDi(a) === f.id; });
+    return '<div>' +
+      '<div class="capo" style="margin-bottom:10px">' +
+        '<h3><a href="catalogo.html?fam=' + f.id + '" class="tocco">' + FERMO.esc(f.nome) + '</a></h3>' +
+        '<span class="capo__nota">' + suoi.length + (suoi.length === 1 ? ' annuncio' : ' annunci') + '</span>' +
+      '</div>' +
+      '<p class="piccolo fioco" style="margin:-6px 0 12px">' + FERMO.esc(f.nota) + '</p>' +
+      '<div class="griglia griglia--2 griglia--4">' +
+        D.categorieDi(f.id).map(tessera).join('') +
+      '</div>' +
+    '</div>';
   }).join('');
 
   /* --------------------------------------------------------------- aste -- */
@@ -73,8 +95,13 @@
     : 'nessuna aperta';
 
   /* --------------------------------------------------------- in evidenza -- */
-  /* Lo scarto più alto rispetto al nuovo, una macchina per categoria, così la
+  /* Lo scarto più alto rispetto al nuovo, un annuncio per categoria, così la
      vetrina non si riempie di tre torni. Le aste restano alla sezione loro. */
+  var notaEvidenza = document.getElementById('nota-evidenza');
+  if (notaEvidenza) {
+    notaEvidenza.textContent = 'in media −' + Math.round(scontoMedio * 100) + ' % dal nuovo';
+  }
+
   var viste = {};
   var top = tutti.slice()
     .filter(function (a) { return !FERMO.inAsta(a) && FERMO.sconto(a) != null; })

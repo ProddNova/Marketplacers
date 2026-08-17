@@ -1,5 +1,5 @@
 /* =============================================================================
-   FERMO — lato domanda: pratiche di acquisto e macchine seguite
+   FERMO — lato domanda: pratiche di acquisto e annunci seguiti
    Ogni pratica è una carta: stato in alto, percorso in mezzo, conversazione
    richiudibile in fondo. Sul telefono non c'è niente da far scorrere di lato.
    ========================================================================== */
@@ -241,11 +241,11 @@
     var ids = FERMO.store.tutto().preferiti;
     var beni = ids.map(FERMO.trova).filter(Boolean);
     g('conteggio-preferiti').textContent = beni.length +
-      (beni.length === 1 ? ' macchina' : ' macchine');
+      (beni.length === 1 ? ' annuncio' : ' annunci');
     g('lista-preferiti').innerHTML = beni.map(FERMO.scheda).join('');
     g('preferiti-vuoti').innerHTML = beni.length ? '' :
       '<div class="vuoto"><h3>Non stai seguendo niente</h3>' +
-      '<p class="piccolo">Il cuore su ogni scheda tiene da parte le macchine che ti interessano.</p></div>';
+      '<p class="piccolo">Il cuore su ogni scheda tiene da parte quello che ti interessa.</p></div>';
   }
 
   document.addEventListener('fermo:preferiti', disegnaPreferiti);

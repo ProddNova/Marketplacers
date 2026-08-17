@@ -59,13 +59,16 @@
   var fEuroTondo = new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
   var fNum = new Intl.NumberFormat('it-IT');
 
-  /* Il contatore cambia nome da macchina a macchina: le ore di un mandrino,
-     i chilometri di un furgone, le battute di una pressa. */
+  /* Il contatore cambia nome da un bene all'altro: le ore di un mandrino, i
+     chilometri di un furgone, le battute di una pressa, le pagine di una
+     multifunzione, gli scatti di un corpo macchina. */
   var CONTATORI = {
     ore:     { singolo: 'ora',     plurale: 'ore' },
     km:      { singolo: 'km',      plurale: 'km' },
     battute: { singolo: 'battuta', plurale: 'battute' },
-    cicli:   { singolo: 'ciclo',   plurale: 'cicli' }
+    cicli:   { singolo: 'ciclo',   plurale: 'cicli' },
+    pagine:  { singolo: 'pagina',  plurale: 'pagine' },
+    scatti:  { singolo: 'scatto',  plurale: 'scatti' }
   };
   function contatore(a) {
     if (!a || !a.contatore || !a.contatore.valore) return '';
@@ -110,10 +113,16 @@
     return o == null ? a.prezzo : o;
   }
   function inAsta(a) { return !!a.asta && a.mod.indexOf('asta') !== -1; }
-  /* Quanto si risparmia rispetto alla stessa macchina nuova, oggi. */
+  /* Quanto si risparmia rispetto allo stesso bene nuovo, oggi. */
   function sconto(a) {
     if (!a.nuovo) return null;
     return Math.max(0, 1 - prezzoCorrente(a) / a.nuovo);
+  }
+  /* Su un lotto il numero che decide l'acquisto non e' il prezzo del blocco ma
+     quello a pezzo: 720 € non dicono niente, 6 € a tastiera si'. */
+  function lotto(a) { return a.pezzi > 1; }
+  function perPezzo(a) {
+    return lotto(a) ? prezzoCorrente(a) / a.pezzi : null;
   }
   function eta(a) {
     return a.anno ? new Date().getFullYear() - a.anno : null;
@@ -184,7 +193,35 @@
          '<path d="M18 34h30"/>',
     muletto: '<path d="M28 58V32h30v26"/><path d="M58 40h12v18H58z"/><path d="M70 20v38"/><path d="M70 52h22"/>' +
          '<path d="M70 20h10"/><circle cx="38" cy="62" r="7"/><circle cx="62" cy="62" r="5"/>' +
-         '<path d="M92 52v-6"/><rect x="76" y="40" width="16" height="12" rx="1"/>'
+         '<path d="M92 52v-6"/><rect x="76" y="40" width="16" height="12" rx="1"/>',
+    /* attrezzatura da ufficio e informatica: lo stesso tratto, la stessa
+       griglia da 120 × 80, cosi' un bancale di monitor e un centro di lavoro
+       stanno nello stesso elenco senza stonare */
+    portatile: '<rect x="30" y="14" width="60" height="38" rx="3"/><path d="M36 20h48v26H36z"/>' +
+         '<path d="M20 60h80l-9-8H29z"/><path d="M52 60h16"/>',
+    monitor: '<rect x="14" y="12" width="70" height="42" rx="3"/><path d="M14 46h70"/>' +
+         '<path d="M45 54v6M34 62h22"/>' +
+         '<rect x="66" y="60" width="40" height="13" rx="2"/>' +
+         '<path d="M72 66.5h3M80 66.5h3M88 66.5h3M96 66.5h3"/>',
+    rack: '<rect x="34" y="8" width="52" height="60" rx="3"/><path d="M34 22h52M34 36h52M34 50h52"/>' +
+         '<path d="M40 15h12M40 29h12M40 43h12M40 57h12"/>' +
+         '<circle cx="78" cy="15" r="1.8"/><circle cx="78" cy="29" r="1.8"/>' +
+         '<path d="M42 68v6M78 68v6"/>',
+    scrivania: '<path d="M12 32h60v5H12z"/><path d="M17 37v25M67 37v25"/>' +
+         '<rect x="26" y="41" width="30" height="15" rx="2"/><path d="M31 48h8"/>' +
+         '<path d="M82 42h22v4H82z"/><path d="M104 42V22h-7"/><path d="M93 46v14"/><path d="M83 62h20"/>',
+    videocamera: '<rect x="18" y="26" width="52" height="32" rx="3"/>' +
+         '<path d="M70 36l26-11v30L70 44z"/><circle cx="34" cy="19" r="8"/><circle cx="56" cy="19" r="8"/>' +
+         '<path d="M28 58v8M60 58v8"/><path d="M24 66h40"/>',
+    avvitatore: '<path d="M24 22h46v22H24z"/><path d="M70 28h14v10H70z"/><path d="M84 31h12v4H84z"/>' +
+         '<path d="M36 44v14h20V44"/><rect x="32" y="58" width="28" height="12" rx="2"/>' +
+         '<path d="M24 32h-8"/>',
+    forno: '<rect x="18" y="18" width="84" height="54" rx="3"/><path d="M18 36h84"/>' +
+         '<circle cx="38" cy="27" r="4"/><circle cx="60" cy="27" r="4"/><circle cx="82" cy="27" r="4"/>' +
+         '<rect x="28" y="44" width="64" height="22" rx="2"/><path d="M46 55h28"/>',
+    negozio: '<path d="M14 30h92l-9-16H23z"/><path d="M22 30v40M98 30v40"/><path d="M14 70h92"/>' +
+         '<rect x="34" y="44" width="28" height="26" rx="2"/><path d="M56 57h.01"/>' +
+         '<rect x="74" y="44" width="18" height="14" rx="2"/>'
   };
 
   function glifo(nome, classe) {
@@ -201,7 +238,7 @@
     compratore: {
       nome: 'Compratore',
       altro: 'venditore',
-      nota: 'Cerchi una macchina: sfogli il listino, prenoti una visione, fai la tua proposta.',
+      nota: 'Cerchi un\'attrezzatura: sfogli il listino, prenoti una visione, fai la tua proposta.',
       pagine: [
         { href: 'index.html',    nome: 'Home',     icona: 'casa' },
         { href: 'catalogo.html', nome: 'Cerca',    icona: 'lente' },
@@ -211,7 +248,7 @@
     venditore: {
       nome: 'Venditore',
       altro: 'compratore',
-      nota: 'Hai ferro da vendere: lo metti a listino e decidi quali proposte accettare.',
+      nota: 'Hai attrezzatura ferma: la metti a listino e decidi quali proposte accettare.',
       pagine: [
         { href: 'index.html',    nome: 'Home',    icona: 'casa' },
         { href: 'console.html',  nome: 'Console', icona: 'cruscotto', bollo: 'offerte' },
@@ -224,7 +261,7 @@
     'catalogo.html': 'compratore', 'acquisti.html': 'compratore', 'asset.html': 'compratore',
     'console.html': 'venditore', 'pubblica.html': 'venditore'
   };
-  /* La scheda di una macchina sta sotto "Cerca": la voce resta accesa. */
+  /* La scheda di un annuncio sta sotto "Cerca": la voce resta accesa. */
   var TAB_DI = { 'asset.html': 'catalogo.html' };
 
   function ruoloCorrente() { return RUOLI[store.tutto().ruolo] ? store.tutto().ruolo : 'compratore'; }
@@ -355,11 +392,16 @@
   /* ------------------------------------------------------------- pannelli - */
   /* Foglio che sale dal basso sul telefono, riquadro al centro sullo schermo
      grande. Un solo componente per filtri, opzioni e guida. */
+  var contaPannelli = 0;
   function pannello(opz) {
     var d = document.createElement('dialog');
     d.className = 'pannello';
+    /* il titolo del foglio è anche il nome del dialogo: senza questo legame
+       chi usa un lettore di schermo sente aprirsi una finestra senza nome */
+    var idTitolo = 'pannello-titolo-' + (++contaPannelli);
+    d.setAttribute('aria-labelledby', idTitolo);
     d.innerHTML =
-      '<div class="pannello__testa">' + esc(opz.titolo) +
+      '<div class="pannello__testa" id="' + idTitolo + '">' + esc(opz.titolo) +
         '<button class="tondo spinta" type="button" data-chiudi aria-label="Chiudi">' +
           icona('chiudi') + '</button>' +
       '</div>' +
@@ -392,7 +434,9 @@
 
   /* ====================================================== QUADRO SEDI ====== */
   /* Proiezione equirettangolare delle sedi reali. Nessun contorno disegnato:
-     la sagoma esce dai punti, e cio' che non sappiamo non lo inventiamo. */
+     la sagoma esce dai punti, e cio' che non sappiamo non lo inventiamo.
+     Non e' un vezzo: il ritiro parte da lì, quindi la distanza e' un costo —
+     e su un lotto di monitor da 40 € l'uno il trasporto pesa piu' del prezzo. */
   function quadro(beni, opzioni) {
     opzioni = opzioni || {};
     var latMin = 37.4, latMax = 47.0, lonMin = 6.9, lonMax = 18.2;
@@ -406,7 +450,7 @@
     var px = function (lon) { return margine + (lon - lonMin) * kx * scala; };
     var py = function (lat) { return margine + (latMax - lat) * scala; };
 
-    /* raggruppo per citta': una sede, un punto, raggio per numero di macchine */
+    /* raggruppo per citta': una sede, un punto, raggio per numero di annunci */
     var sedi = {};
     beni.forEach(function (b) {
       var c = D.coord(b.citta);
@@ -417,8 +461,9 @@
     var elenco = Object.keys(sedi).map(function (k) { return sedi[k]; });
     /* Raggio proporzionale all'area, non al raggio: e' l'area che l'occhio
        legge come quantita'. Restano piccoli, cosi' sedi vicine come Brescia e
-       Lumezzane (12 km) non si coprono a vicenda. */
-    var raggio = function (n) { return 4 + 2.6 * Math.sqrt(n - 1); };
+       Lumezzane (12 km) non si coprono a vicenda. Il tetto tiene il punto
+       leggibile anche dove le sedi si concentrano. */
+    var raggio = function (n) { return Math.min(11, 4 + 2.6 * Math.sqrt(n - 1)); };
 
     /* graticolato: paralleli e meridiani interi, filo sottile */
     var rete = '';
@@ -453,7 +498,7 @@
         var r = raggio(s.beni.length);
         var valore = s.beni.reduce(function (t, b) { return t + prezzoCorrente(b); }, 0);
         var etichetta = s.citta + ': ' + s.beni.length +
-          (s.beni.length === 1 ? ' macchina' : ' macchine') + ', ' + fmt.euroTondo(valore) + ' a listino';
+          (s.beni.length === 1 ? ' annuncio' : ' annunci') + ', ' + fmt.euroTondo(valore) + ' a listino';
         var grande = isolata(s);
         return '<g class="sede" tabindex="0" role="button" data-citta="' + esc(s.citta) + '" ' +
             'aria-label="' + esc(etichetta) + '. Filtra il listino su questa città.">' +
@@ -469,7 +514,7 @@
 
     return '<svg class="quadro" viewBox="0 0 ' + L.toFixed(0) + ' ' + A.toFixed(0) + '" ' +
       'role="img" aria-label="' + esc(opzioni.descrizione ||
-        ('Quadro delle sedi: ' + elenco.length + ' città con macchine a listino')) + '">' +
+        ('Quadro delle sedi: ' + elenco.length + ' città con attrezzature a listino')) + '">' +
       rete + punti + '</svg>';
   }
 
@@ -532,7 +577,7 @@
     el.innerHTML =
       '<div class="piede__corpo">' +
         '<div>' +
-          '<strong>FERMO</strong> — il mercato dei macchinari usati.<br>' +
+          '<strong>FERMO</strong> — il mercato dell\'attrezzatura da lavoro usata.<br>' +
           '<span class="fioco">Prototipo dimostrativo: dati inventati, nessun pagamento reale.</span>' +
         '</div>' +
         '<div class="riga" style="gap:14px">' +
@@ -596,11 +641,17 @@
       segni.push('<span class="pillola pillola--blu">Trattativa</span>');
     }
     segni.push('<span class="pillola">' + esc(cond.nome) + '</span>');
-    if (a.pezzi > 1) segni.push('<span class="pillola">' + fmt.pezzi(a.pezzi) + '</span>');
+    if (lotto(a)) segni.push('<span class="pillola">' + fmt.pezzi(a.pezzi) + ' in blocco</span>');
 
+    /* Sotto al prezzo va il dato che manca per decidere, e cambia con il bene:
+       su un lotto è quanto viene il pezzo, in asta quanti rilanci ci sono già
+       stati, altrimenti quanto si risparmia sul nuovo. */
+    var pp = perPezzo(a);
     var sotto = inAsta(a)
       ? 'offerta più alta · ' + a.asta.offerte + (a.asta.offerte === 1 ? ' rilancio' : ' rilanci')
-      : (sc != null && sc > 0.05 ? '−' + Math.round(sc * 100) + ' % dal nuovo' : 'IVA esclusa');
+      : pp != null
+        ? fmt.euroTondo(pp) + ' a pezzo'
+        : (sc != null && sc > 0.05 ? '−' + Math.round(sc * 100) + ' % dal nuovo' : 'IVA esclusa');
 
     return '' +
       '<article class="bene" data-id="' + esc(a.id) + '">' +
@@ -620,7 +671,7 @@
   }
 
   /* Vita residua dichiarata: il misuratore dice a colpo d'occhio se stai
-     comprando una macchina rodata o un cantiere. */
+     comprando un bene rodato o un cantiere. */
   function livello(quota) {
     if (quota >= 0.75) return 'ottimo';
     if (quota >= 0.5) return 'buono';
@@ -808,8 +859,8 @@
       if (!art) return;
       var dentro = commutaPreferito(art.getAttribute('data-id'));
       b.setAttribute('aria-pressed', dentro ? 'true' : 'false');
-      brindisi(dentro ? 'Salvata' : 'Rimossa',
-        dentro ? 'La ritrovi in Acquisti, sotto “Seguite”.' : 'Tolta dalle macchine seguite.');
+      brindisi(dentro ? 'Salvato' : 'Rimosso',
+        dentro ? 'Lo ritrovi in Acquisti, sotto “Che sto seguendo”.' : 'Non lo segui più.');
       document.dispatchEvent(new CustomEvent('fermo:preferiti'));
     });
 
@@ -840,6 +891,8 @@
     offertaCorrente: offertaCorrente,
     inAsta: inAsta,
     sconto: sconto,
+    lotto: lotto,
+    perPezzo: perPezzo,
     eta: eta,
     colonne: colonne,
     barre: barre,

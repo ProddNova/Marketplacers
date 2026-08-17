@@ -14,8 +14,15 @@
   var TITOLI = { 1: 'Che cosa vendi', 2: 'Stato e provenienza', 3: 'Prezzo e condizioni', 4: 'Dettagli e pubblicazione' };
 
   /* --------------------------------------------------- riempimento campi */
-  g('f-cat').innerHTML = D.CATEGORIE.map(function (c) {
-    return '<option value="' + c.id + '">' + FERMO.esc(c.nome) + '</option>';
+  /* Diciassette categorie in un menu piatto sono un muro: raggruppate per
+     famiglia si scorrono. Il menu nativo lo fa da sé con optgroup, che sul
+     telefono diventa la lista di sistema con le sue intestazioni. */
+  g('f-cat').innerHTML = D.FAMIGLIE.map(function (f) {
+    return '<optgroup label="' + FERMO.esc(f.nome) + '">' +
+      D.categorieDi(f.id).map(function (c) {
+        return '<option value="' + c.id + '">' + FERMO.esc(c.nome) + '</option>';
+      }).join('') +
+    '</optgroup>';
   }).join('');
 
   g('f-condizione').innerHTML = D.CONDIZIONI.map(function (c, i) {
@@ -24,8 +31,10 @@
   }).join('');
 
   var MOTIVI = ['sostituzione', 'cambio-tecnologia', 'cambio-produzione', 'fine-commessa',
-                'accorpamento', 'trasloco', 'calo-ordini', 'liquidazione', 'pensionamento',
-                'rinnovo-flotta', 'sovradimensionamento'];
+                'fine-progetto', 'accorpamento', 'trasloco', 'calo-ordini', 'liquidazione',
+                'pensionamento', 'rinnovo-flotta', 'rinnovo-parco-it', 'fine-noleggio',
+                'passaggio-cloud', 'lavoro-ibrido', 'cambio-fornitore', 'fine-cantiere',
+                'chiusura-locale', 'chiusura-sede', 'sovradimensionamento'];
   g('f-motivo').innerHTML = MOTIVI.map(function (m) {
     return '<option value="' + m + '">' + FERMO.esc(D.motivo(m)) + '</option>';
   }).join('');
@@ -120,11 +129,18 @@
     var commissione = riferimento * D.COMMISSIONE;
     var netto = FERMO.nettoVenditore(riferimento);
     var recupero = b.nuovo ? riferimento / b.nuovo : null;
+    /* Su un lotto quello che serve sapere è quanto entra per pezzo: è il
+       numero con cui deciderai se vale la pena smontare il magazzino. */
+    var pezzi = b.pezzi > 1 ? b.pezzi : 0;
 
     g('conto-anteprima').innerHTML =
       riga(inAsta ? 'Base d\'asta' : 'Prezzo richiesto', FERMO.fmt.euroTondo(riferimento)) +
+      (pezzi ? riga('Prezzo a pezzo', FERMO.fmt.euroTondo(riferimento / pezzi)) : '') +
       riga('Commissione 6 %', '−' + FERMO.fmt.euro(commissione)) +
       (recupero != null ? riga('Recupero sul valore da nuovo', FERMO.fmt.pct(recupero)) : '') +
+      (pezzi ? riga('Netto a pezzo', FERMO.fmt.euro(netto / pezzi)) : '') +
+      /* «Ti resta» va per ultima: è la riga che il foglio di stile mette in
+         risalto, e la cifra che il venditore cerca. */
       riga('Ti resta', FERMO.fmt.euroTondo(netto));
 
     var st = g('stima');
@@ -144,6 +160,10 @@
 
   /* ---------------------------------------------------------- validazione */
   var ANNO = new Date().getFullYear();
+  /* il tetto dell'anno lo mette il codice: scritto nell'HTML resterebbe
+     indietro al primo gennaio, e il campo direbbe una cosa e la validazione
+     un'altra */
+  g('f-anno').setAttribute('max', String(ANNO));
   var REGOLE = {
     1: [
       ['f-titolo', function (v) { return v.trim().length >= 8; }, 'Serve un titolo di almeno 8 caratteri.'],
@@ -154,7 +174,7 @@
       ['f-citta', function (v) { return v.trim().length >= 2; }, 'Indica la città dove sta la macchina.'],
       ['f-prov', function (v) { return /^[A-Za-z]{2}$/.test(v.trim()); }, 'Due lettere, per esempio BS.'],
       ['f-venditore', function (v) { return v.trim().length >= 3; }, 'Indica la ragione sociale.'],
-      ['f-pezzi', function (v) { return +v >= 1 && +v <= 99; }, 'Tra 1 e 99 pezzi.']
+      ['f-pezzi', function (v) { return +v >= 1 && +v <= 999; }, 'Tra 1 e 999 pezzi.']
     ],
     3: [
       ['f-prezzo', function (v) { return +v > 0; }, 'Il prezzo deve essere maggiore di zero.'],

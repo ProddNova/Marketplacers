@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Metti in vendita — FERMO</title>
-<meta name="description" content="Vendi la macchina che non usi: quattro passaggi, nessun canone, commissione del 6 % solo se vendi.">
+<meta name="description" content="Vendi l'attrezzatura che non usi — una macchina o un lotto di portatili: quattro passaggi, nessun canone, commissione del 6 % solo se vendi.">
 <!-- anteprima dei collegamenti -->
 <link rel="canonical" href="https://fermo-demo.onrender.com/pubblica">
 <meta property="og:type" content="website">
@@ -12,11 +12,11 @@
 <meta property="og:locale" content="it_IT">
 <meta property="og:url" content="https://fermo-demo.onrender.com/pubblica">
 <meta property="og:title" content="Metti in vendita — FERMO">
-<meta property="og:description" content="Vendi la macchina che non usi: quattro passaggi, nessun canone, commissione del 6 % solo se vendi.">
+<meta property="og:description" content="Vendi l'attrezzatura che non usi — una macchina o un lotto di portatili: quattro passaggi, nessun canone, commissione del 6 % solo se vendi.">
 <meta property="og:image" content="https://fermo-demo.onrender.com/assets/img/anteprima.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="FERMO — il mercato dei macchinari usati">
+<meta property="og:image:alt" content="FERMO — il mercato dell'attrezzatura da lavoro usata">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#191A1D" media="(prefers-color-scheme: dark)">
@@ -29,9 +29,10 @@
 <main class="pagina pagina--azioni contenitore">
 
   <div class="sezione--stretta">
-    <h1 style="font-size:clamp(24px,6vw,32px)">Vendi la macchina ferma</h1>
-    <p class="tenue" style="margin-top:8px">Quattro passaggi. Nessun canone: la piattaforma
-      trattiene il 6 % solo se la vendi davvero.</p>
+    <h1 style="font-size:clamp(24px,6vw,32px)">Vendi quello che è fermo</h1>
+    <p class="tenue" style="margin-top:8px">Una macchina, un lotto di portatili, i monitor
+      rimasti in magazzino: quattro passaggi per tutti. Nessun canone: la piattaforma
+      trattiene il 6 % solo se vendi davvero.</p>
   </div>
 
   <div class="passi" id="passi" aria-hidden="true">
@@ -56,8 +57,9 @@
           </label>
           <label class="campo">
             <span class="campo__nome">Titolo dell'annuncio</span>
-            <input type="text" id="f-titolo" maxlength="90" placeholder="Centro di lavoro 4 assi con tavola rotante">
-            <span class="campo__aiuto">Marca, modello e la caratteristica che conta. Chi cerca legge questa riga.</span>
+            <input type="text" id="f-titolo" maxlength="90" placeholder="Lotto di 24 portatili business 14&quot; i5 11ª gen">
+            <span class="campo__aiuto">Marca, modello e la caratteristica che conta — su un lotto,
+              quanti pezzi sono. Chi cerca legge questa riga.</span>
           </label>
           <div class="campo">
             <span class="campo__nome">Come vuoi venderla <span class="fioco">(anche più di una)</span></span>
@@ -71,8 +73,8 @@
               comprando un cambio di programma o un problema.</span>
           </label>
           <label class="campo">
-            <span class="campo__nome">In due righe, la storia della macchina</span>
-            <textarea id="f-sintesi" maxlength="280" placeholder="Sostituita da un cinque assi più grande: esce dalla produzione a fine mese, con tutta l'attrezzatura."></textarea>
+            <span class="campo__nome">In due righe, la storia di quello che vendi</span>
+            <textarea id="f-sintesi" maxlength="280" placeholder="Fine del noleggio a tre anni: 24 macchine identiche, riformattate una per una con cancellazione dati certificata. Si vendono in blocco."></textarea>
           </label>
         </section>
 
@@ -81,7 +83,7 @@
           <div class="griglia griglia--2">
             <label class="campo" style="margin-top:0">
               <span class="campo__nome">Anno di costruzione</span>
-              <input type="number" id="f-anno" min="1960" max="2026" value="2016">
+              <input type="number" id="f-anno" min="1960" max="2026" value="2021">
             </label>
             <label class="campo" style="margin-top:0">
               <span class="campo__nome">Stato</span>
@@ -92,7 +94,7 @@
             <label class="campo" style="margin-top:0">
               <span class="campo__nome">Contatore</span>
               <input type="number" id="f-contatore" min="0" value="14000">
-              <span class="campo__aiuto">Zero se non ce l'ha.</span>
+              <span class="campo__aiuto">Zero se non ce l'ha. Su un lotto, il totale di tutti i pezzi.</span>
             </label>
             <label class="campo" style="margin-top:0">
               <span class="campo__nome">Unità</span>
@@ -101,6 +103,8 @@
                 <option value="km">chilometri</option>
                 <option value="battute">battute</option>
                 <option value="cicli">cicli</option>
+                <option value="pagine">pagine stampate</option>
+                <option value="scatti">scatti</option>
               </select>
             </label>
           </div>
@@ -121,8 +125,9 @@
           <div class="griglia griglia--2" style="margin-top:16px">
             <label class="campo" style="margin-top:0">
               <span class="campo__nome">Pezzi nel lotto</span>
-              <input type="number" id="f-pezzi" min="1" max="99" value="1">
-              <span class="campo__aiuto">Più di uno si vende in blocco.</span>
+              <input type="number" id="f-pezzi" min="1" max="999" value="1">
+              <span class="campo__aiuto">Più di uno si vende in blocco: l'annuncio mostrerà
+                anche quanto viene il pezzo.</span>
             </label>
             <label class="campo" style="margin-top:0">
               <span class="campo__nome">Ritirabile fra</span>
@@ -146,24 +151,24 @@
           <div class="griglia griglia--2">
             <label class="campo" style="margin-top:0">
               <span class="campo__nome">Prezzo richiesto (€)</span>
-              <input type="number" id="f-prezzo" min="0" step="100" value="45000">
-              <span class="campo__aiuto">IVA esclusa.</span>
+              <input type="number" id="f-prezzo" min="0" step="10" value="6480">
+              <span class="campo__aiuto">IVA esclusa. Su un lotto è il prezzo del blocco intero.</span>
             </label>
             <label class="campo" style="margin-top:0">
-              <span class="campo__nome">Quanto costa nuova oggi (€)</span>
-              <input type="number" id="f-nuovo" min="0" step="500" value="150000">
-              <span class="campo__aiuto">Serve a mostrare il risparmio.</span>
+              <span class="campo__nome">Quanto costa nuovo oggi (€)</span>
+              <input type="number" id="f-nuovo" min="0" step="10" value="28800">
+              <span class="campo__aiuto">Serve a mostrare il risparmio. Zero se non lo sai.</span>
             </label>
           </div>
           <div id="blocco-asta" hidden>
             <div class="griglia griglia--2" style="margin-top:16px">
               <label class="campo" style="margin-top:0">
                 <span class="campo__nome">Base d'asta (€)</span>
-                <input type="number" id="f-base" min="0" step="100" value="30000">
+                <input type="number" id="f-base" min="0" step="10" value="3600">
               </label>
               <label class="campo" style="margin-top:0">
                 <span class="campo__nome">Rilancio minimo (€)</span>
-                <input type="number" id="f-rilancio" min="50" step="50" value="500">
+                <input type="number" id="f-rilancio" min="10" step="10" value="50">
               </label>
             </div>
             <label class="campo">
@@ -197,11 +202,14 @@
           <label class="campo">
             <span class="campo__nome">Smontaggio e carico</span>
             <select id="f-smontaggio">
+              <option value="non-serve" selected>Non serve smontare: si carica com'è</option>
               <option value="incluso">Li faccio io, sono compresi</option>
-              <option value="acquirente" selected>A carico di chi compra</option>
+              <option value="acquirente">A carico di chi compra</option>
               <option value="venditore">Li faccio io, ma a preventivo</option>
               <option value="gia-smontato">È già smontata e pronta al carico</option>
             </select>
+            <span class="campo__aiuto">Per un bancale di monitor non serve niente; per una
+              cabina di verniciatura è metà del prezzo.</span>
           </label>
           <div class="avviso avviso--nota" id="stima" style="margin-top:18px"></div>
         </section>
@@ -210,21 +218,22 @@
         <section data-sezione="4" hidden>
           <div class="campo">
             <label class="campo__nome" for="f-specifiche">Scheda tecnica</label>
-            <textarea id="f-specifiche" rows="6" placeholder="Corse X/Y/Z: 800 × 500 × 500 mm&#10;Mandrino: 12.000 giri/min, 4.100 ore&#10;Ultimo intervento: revisione guide, marzo 2025"></textarea>
+            <textarea id="f-specifiche" rows="6" placeholder="Macchine: 24 unità identiche, 14&quot; 1920 × 1080&#10;Processore e memoria: i5 11ª gen, 16 GB, SSD 512 GB&#10;Batterie: salute 78 % ÷ 91 %, misurata una per una&#10;Dati: cancellazione certificata NIST 800-88"></textarea>
             <span class="campo__aiuto">Una voce per riga, nella forma <code>chiave: valore</code>.
-              Chi compra usato compra numeri e manutenzioni: più righe metti, meno telefonate ricevi.</span>
+              Chi compra usato compra numeri e manutenzioni: più righe metti, meno telefonate ricevi.
+              Su un lotto conta soprattutto quanto sono uguali fra loro i pezzi.</span>
           </div>
           <label class="campo">
             <span class="campo__nome">Compreso nel prezzo <span class="fioco">(separati da virgola)</span></span>
-            <input type="text" id="f-incluso" placeholder="Attrezzatura, manuali, ricambi di scorta">
+            <input type="text" id="f-incluso" placeholder="Alimentatori originali, borse, rapporto di test per matricola">
           </label>
           <label class="campo">
             <span class="campo__nome">A carico di chi compra <span class="fioco">(separati da virgola)</span></span>
-            <input type="text" id="f-escluso" placeholder="Trasporto, utensili, opere murarie">
+            <input type="text" id="f-escluso" placeholder="Trasporto, vendita di singoli pezzi, licenze">
           </label>
           <label class="campo">
             <span class="campo__nome">Documenti e conformità <span class="fioco">(separati da virgola)</span></span>
-            <input type="text" id="f-certificazioni" placeholder="Marcatura CE, verifica periodica 2025">
+            <input type="text" id="f-certificazioni" placeholder="Marcatura CE, cancellazione dati certificata NIST 800-88">
           </label>
           <div class="avviso avviso--occhio" style="margin-top:18px">
             <span><strong>Prima della pubblicazione vera</strong> verificheremmo partita IVA, visura

@@ -1,5 +1,5 @@
 # FERMO — prototipo dimostrativo.
-# Venditori, macchine e prezzi sono inventati: finché resta una demo non ha
+# Venditori, attrezzature e prezzi sono inventati: finché resta una demo non ha
 # senso che finisca negli indici di ricerca. I bot che generano l'anteprima dei
 # collegamenti restano ammessi, altrimenti condividere il link non mostra nulla.
 
